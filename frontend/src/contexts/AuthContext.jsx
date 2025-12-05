@@ -1,6 +1,14 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const AuthContext = createContext(null);
+const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -8,32 +16,45 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Проверка сохраненной сессии при загрузке
   useEffect(() => {
-    const token = localStorage.getItem('hydroatlasAuthToken');
-    const role = localStorage.getItem('hydroatlasUserRole');
+    const savedUser = localStorage.getItem('user');
+    const savedRole = localStorage.getItem('userRole');
     
-    if (token && role) {
-      setIsAuthenticated(true);
-      setUserRole(role);
-      setUser({ token, role });
+    if (savedUser && savedRole) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setUserRole(savedRole);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Error parsing saved user data:', error);
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+      }
     }
+    
     setLoading(false);
   }, []);
 
   const login = (userData, role) => {
-    localStorage.setItem('hydroatlasAuthToken', userData.token);
-    localStorage.setItem('hydroatlasUserRole', role);
     setUser(userData);
     setUserRole(role);
     setIsAuthenticated(true);
+    
+    // Сохраняем в localStorage
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('userRole', role);
   };
 
   const logout = () => {
-    localStorage.removeItem('hydroatlasAuthToken');
-    localStorage.removeItem('hydroatlasUserRole');
     setUser(null);
     setUserRole(null);
     setIsAuthenticated(false);
+    
+    // Очищаем localStorage
+    localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
   };
 
   const value = {
@@ -48,10 +69,4 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
-};
+export default AuthContext;
