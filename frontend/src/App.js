@@ -22,7 +22,17 @@ import NotFoundPage from './pages/public/NotFoundPage';
 // import ExpertMap from './pages/expert/ExpertMap';
 
 // Emergency pages
-// import EmergencyDashboard from './pages/emergency/EmergencyDashboard';
+import EmergencyDashboard from './pages/emergency/EmergencyDashboard';
+import EmergencyWaterBodies from './pages/emergency/WaterBodiesManagement';
+import EmergencyFacilities from './pages/emergency/FacilitiesManagement';
+import EmergencyCriticalZones from './pages/emergency/CriticalZonesPage';
+import EmergencyAnalytics from './pages/emergency/AnalyticsPage';
+import EmergencyReports from './pages/emergency/ReportsPage';
+import EmergencyPrioritization from './pages/emergency/PrioritizationPage';
+import EmergencyMap from './pages/emergency/EmergencyMap';
+import EmergencyPredictions from './pages/emergency/PredictionsPage';
+import EmergencyNotifications from './pages/emergency/NotificationsManagement';
+import EmergencyProfile from './pages/emergency/ProfilePage';
 
 // Admin pages
 // import AdminDashboard from './pages/admin/AdminDashboard';
@@ -50,8 +60,17 @@ function App() {
 
           {/* Защищённые маршруты для МЧС */}
           <Route element={<RequireAuth allowedRoles={['emergency']} />}>
-            <Route path="/emergency/control-center" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Emergency Control Center - В разработке</h1></div>} />
-            <Route path="/emergency/map" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Emergency Map - В разработке</h1></div>} />
+            <Route path="/emergency/control-center" element={<EmergencyDashboard />} />
+            <Route path="/emergency/map" element={<EmergencyMap />} />
+            <Route path="/emergency/waterbodies" element={<EmergencyWaterBodies />} />
+            <Route path="/emergency/facilities" element={<EmergencyFacilities />} />
+            <Route path="/emergency/predictions" element={<EmergencyPredictions />} />
+            <Route path="/emergency/critical-zones" element={<EmergencyCriticalZones />} />
+            <Route path="/emergency/prioritization" element={<EmergencyPrioritization />} />
+            <Route path="/emergency/analytics" element={<EmergencyAnalytics />} />
+            <Route path="/emergency/notifications" element={<EmergencyNotifications />} />
+            <Route path="/emergency/reports" element={<EmergencyReports />} />
+            <Route path="/emergency/profile" element={<EmergencyProfile />} />
           </Route>
 
           {/* Защищённые маршруты для админов */}

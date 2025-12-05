@@ -1,0 +1,88 @@
+/* Responsive Container Utilities */
+
+/* Prevent any horizontal overflow */
+.responsive-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    position: relative;
+  }
+  
+  /* Safe container with proper padding */
+  .safe-container {
+    width: 100%;
+    max-width: 100vw;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
+  
+  @media (min-width: 640px) {
+    .safe-container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .safe-container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: calc(100vw - 288px); /* Учитываем sidebar 280px + 8px отступ */
+    }
+  }
+  
+  /* Prevent content from pushing viewport */
+  .no-horizontal-scroll {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+  
+  /* Mobile-safe grid */
+  .mobile-safe-grid {
+    display: grid;
+    gap: 1rem;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  @media (max-width: 767px) {
+    .mobile-safe-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* Ensure images don't overflow */
+  img, video, canvas, svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+  
+  /* Table responsive wrapper */
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Mobile touch improvements */
+  @media (max-width: 1023px) {
+    /* Better tap targets */
+    button, a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  
+    /* Prevent zoom on input focus */
+    input, select, textarea {
+      font-size: 16px;
+    }
+  
+    /* Safe bottom padding for navigation */
+    .mobile-content {
+      padding-bottom: calc(70px + env(safe-area-inset-bottom, 20px));
+    }
+  }

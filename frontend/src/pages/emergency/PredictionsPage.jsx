@@ -1,316 +1,371 @@
 import React, { useState } from 'react';
-import MinimalHeader from '../../components/layout/MinimalHeader';
-import BottomNavigation from '../../components/layout/BottomNavigation';
-import EmergencyDesktopSidebar from '../../components/layout/EmergencyDesktopSidebar';
-import EmergencyDesktopTopHeader from '../../components/layout/EmergencyDesktopTopHeader';
+import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
+import { Brain, TrendingUp, AlertTriangle, Calendar, Target } from 'lucide-react';
 
-const EmergencyPredictionPage = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('24h');
-  const [selectedDistrict, setSelectedDistrict] = useState('all');
+const EmergencyPredictions = () => {
+  const [timeRange, setTimeRange] = useState('week');
 
-  // Mock prediction data
   const predictions = [
     {
       id: 1,
-      district: 'Центральный район',
-      currentLevel: 3.8,
-      predictedLevel: 4.5,
-      probability: 85,
-      timeframe: '24 часа',
-      riskLevel: 'high',
-      affectedPopulation: 1200,
-      timestamp: '2024-11-26 18:00'
+      location: 'Река Иртыш (Павлодар)',
+      type: 'water_level',
+      currentValue: 8.2,
+      predictedValue: 9.5,
+      timeframe: '24-48 часов',
+      confidence: 87,
+      risk: 'high',
+      factors: {
+        precipitation: '+85% осадков выше нормы',
+        snowmelt: 'Интенсивное таяние в верховьях',
+        upstream: 'Сброс с ГЭС +20%'
+      },
+      recommendations: [
+        'Немедленная подготовка к эвакуации',
+        'Усиление дамб в критических участках',
+        'Оповещение населения'
+      ],
+      affectedPopulation: 15000
     },
     {
       id: 2,
-      district: 'Северный район',
-      currentLevel: 4.2,
-      predictedLevel: 5.1,
-      probability: 92,
-      timeframe: '24 часа',
-      riskLevel: 'critical',
-      affectedPopulation: 850,
-      timestamp: '2024-11-26 18:00'
+      location: 'Бухтарминское водохранилище',
+      type: 'maintenance',
+      currentCondition: 3,
+      predictedCondition: 4,
+      timeframe: '2-3 месяца',
+      confidence: 72,
+      risk: 'medium',
+      factors: {
+        age: 'Возраст сооружения: 58 лет',
+        inspection: 'Обнаружены микротрещины',
+        load: 'Повышенная нагрузка зимой'
+      },
+      recommendations: [
+        'Плановое обследование в ближайший месяц',
+        'Укрепление проблемных участков',
+        'Мониторинг каждые 2 недели'
+      ],
+      affectedPopulation: 0
     },
     {
       id: 3,
-      district: 'Южный район',
-      currentLevel: 3.2,
-      predictedLevel: 3.7,
-      probability: 65,
-      timeframe: '48 часов',
-      riskLevel: 'medium',
-      affectedPopulation: 600,
-      timestamp: '2024-11-26 18:00'
+      location: 'Озеро Балхаш',
+      type: 'quality',
+      currentQuality: 'moderate',
+      predictedQuality: 'poor',
+      timeframe: '1-2 месяца',
+      confidence: 65,
+      risk: 'medium',
+      factors: {
+        pollution: 'Увеличение промышленных стоков',
+        temperature: 'Повышение температуры воды',
+        algae: 'Риск цветения водорослей'
+      },
+      recommendations: [
+        'Контроль промышленных стоков',
+        'Усиленный мониторинг качества',
+        'Ограничение рекреационной активности'
+      ],
+      affectedPopulation: 8000
+    },
+    {
+      id: 4,
+      location: 'Капшагайская ГЭС',
+      type: 'operational',
+      currentStatus: 'operational',
+      predictedStatus: 'operational',
+      timeframe: '6+ месяцев',
+      confidence: 94,
+      risk: 'low',
+      factors: {
+        maintenance: 'Плановое ТО выполнено',
+        equipment: 'Оборудование в отличном состоянии',
+        load: 'Нормальная нагрузка'
+      },
+      recommendations: [
+        'Продолжать плановый мониторинг',
+        'Следующее ТО через 6 месяцев'
+      ],
+      affectedPopulation: 0
     }
   ];
 
-  const getRiskColor = (level) => {
-    switch (level) {
-      case 'critical': return 'red';
-      case 'high': return 'orange';
-      case 'medium': return 'yellow';
-      default: return 'green';
+  const getRiskColor = (risk) => {
+    switch (risk) {
+      case 'high': return 'text-red-600';
+      case 'medium': return 'text-yellow-600';
+      case 'low': return 'text-green-600';
+      default: return 'text-gray-600';
     }
   };
 
-  const getRiskLabel = (level) => {
-    switch (level) {
-      case 'critical': return 'Критический';
-      case 'high': return 'Высокий';
-      case 'medium': return 'Средний';
-      default: return 'Низкий';
+  const getRiskBg = (risk) => {
+    switch (risk) {
+      case 'high': return 'bg-red-100 border-red-300';
+      case 'medium': return 'bg-yellow-100 border-yellow-300';
+      case 'low': return 'bg-green-100 border-green-300';
+      default: return 'bg-gray-100 border-gray-300';
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'water_level': return '💧';
+      case 'maintenance': return '🔧';
+      case 'quality': return '🧪';
+      case 'operational': return '⚙️';
+      default: return '📊';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="lg:hidden">
-        <MinimalHeader title="Прогноз паводков" showBack />
-      </div>
-
-      {/* Desktop Sidebar */}
-      <EmergencyDesktopSidebar />
-
-      {/* Desktop Top Header */}
-      <EmergencyDesktopTopHeader />
-
-      {/* Main Content */}
-      <main className="pt-16 pb-24 px-4 lg:ml-72 lg:pt-24 lg:pb-8">
-        <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-
-          {/* AI Model Info Banner */}
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl lg:rounded-2xl p-6 text-white">
-            <div className="flex items-start space-x-4">
-              <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+    <EmergencyLayout>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-500 text-white">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold mb-2 flex items-center">
+                  <Brain className="w-8 h-8 mr-3" />
+                  AI Прогнозирование
+                </h1>
+                <p className="text-purple-100">Предиктивная аналитика рисков и состояний объектов</p>
               </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold mb-2">Прогноз на основе AI</h3>
-                <p className="text-white/90 text-sm mb-3">
-                  Система использует машинное обучение для анализа исторических данных, текущих показателей датчиков, метеопрогноза и спутниковых снимков для предсказания уровня воды.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-medium">Точность: 87%</span>
-                  <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-medium">Обновлено: 2 мин назад</span>
-                  <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-medium">Модель: LSTM v2.1</span>
-                </div>
+              
+              <div className="flex items-center space-x-2 bg-white/10 rounded-lg p-1">
+                {['day', 'week', 'month', 'quarter'].map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      timeRange === range ? 'bg-white text-purple-600 font-semibold' : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {range === 'day' ? 'День' : range === 'week' ? 'Неделя' : range === 'month' ? 'Месяц' : 'Квартал'}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Filters */}
-          <div className="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Период прогноза</label>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                >
-                  <option value="24h">Следующие 24 часа</option>
-                  <option value="48h">Следующие 48 часов</option>
-                  <option value="72h">Следующие 72 часа</option>
-                  <option value="week">Следующая неделя</option>
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Район</label>
-                <select
-                  value={selectedDistrict}
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                >
-                  <option value="all">Все районы</option>
-                  <option value="central">Центральный</option>
-                  <option value="north">Северный</option>
-                  <option value="south">Южный</option>
-                  <option value="east">Восточный</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        {/* Stats Bar */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="container mx-auto px-4 py-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">3</p>
-                  <p className="text-xs text-gray-600">Районов в зоне риска</p>
+                  <p className="text-sm text-gray-600">Высокий риск</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {predictions.filter(p => p.risk === 'high').length}
+                  </p>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">2,650</p>
-                  <p className="text-xs text-gray-600">Жителей затронуто</p>
+                  <p className="text-sm text-gray-600">Средний риск</p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {predictions.filter(p => p.risk === 'medium').length}
+                  </p>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">87%</p>
-                  <p className="text-xs text-gray-600">Точность модели</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <span className="text-2xl">✓</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">24ч</p>
-                  <p className="text-xs text-gray-600">Горизонт прогноза</p>
+                  <p className="text-sm text-gray-600">Низкий риск</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {predictions.filter(p => p.risk === 'low').length}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Ср. точность</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {Math.round(predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length)}%
+                  </p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Predictions List */}
-          <div className="space-y-4">
-            {predictions.map((prediction) => (
-              <div key={prediction.id} className="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 lg:p-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    {/* Left Section */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{prediction.district}</h3>
-                          <p className="text-sm text-gray-600">Прогноз на {prediction.timeframe}</p>
-                        </div>
-                        <span className={`px-3 py-1 bg-${getRiskColor(prediction.riskLevel)}-100 text-${getRiskColor(prediction.riskLevel)}-700 rounded-full text-xs font-bold`}>
-                          {getRiskLabel(prediction.riskLevel)}
-                        </span>
+        {/* Main Content */}
+        <div className="container mx-auto px-4 py-6">
+          <div className="space-y-6">
+            {predictions.map((pred) => (
+              <div key={pred.id} className={`bg-white rounded-2xl shadow-lg border-2 overflow-hidden ${getRiskBg(pred.risk)}`}>
+                
+                {/* Header */}
+                <div className="bg-gradient-to-r from-purple-500 to-indigo-500 p-6 text-white">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4">
+                      <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center text-3xl">
+                        {getTypeIcon(pred.type)}
                       </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">Текущий уровень</p>
-                          <p className="text-xl font-bold text-blue-600">{prediction.currentLevel}м</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">Прогноз</p>
-                          <p className="text-xl font-bold text-red-600">{prediction.predictedLevel}м</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">Вероятность</p>
-                          <p className="text-xl font-bold text-purple-600">{prediction.probability}%</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">Затронуто</p>
-                          <p className="text-xl font-bold text-orange-600">{prediction.affectedPopulation}</p>
-                        </div>
+                      <div>
+                        <h3 className="text-2xl font-bold mb-2">{pred.location}</h3>
+                        <p className="text-purple-100">
+                          Тип прогноза: {pred.type === 'water_level' ? 'Уровень воды' : 
+                                        pred.type === 'maintenance' ? 'Техническое состояние' :
+                                        pred.type === 'quality' ? 'Качество воды' : 'Операционный статус'}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Right Section - Actions */}
-                    <div className="flex lg:flex-col gap-2">
-                      <button className="flex-1 lg:w-auto px-4 py-2 bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-lg font-semibold text-sm hover:from-red-700 hover:to-orange-600 transition-all">
-                        Начать эвакуацию
-                      </button>
-                      <button className="flex-1 lg:w-auto px-4 py-2 bg-white text-gray-700 border-2 border-gray-200 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-all">
-                        Подробнее
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-gray-600 mb-2">
-                      <span>Уровень риска</span>
-                      <span>{prediction.probability}%</span>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full bg-gradient-to-r from-${getRiskColor(prediction.riskLevel)}-500 to-${getRiskColor(prediction.riskLevel)}-600`}
-                        style={{ width: `${prediction.probability}%` }}
-                      ></div>
+                    
+                    <div className="text-right">
+                      <div className="text-sm text-purple-100 mb-1">Уверенность AI</div>
+                      <div className="text-4xl font-bold">{pred.confidence}%</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Timeline */}
-                <div className="bg-gray-50 px-4 lg:px-6 py-3 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Обновлено: {prediction.timestamp}</span>
+                {/* Content */}
+                <div className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    
+                    {/* Prediction Details */}
+                    <div className="lg:col-span-2 space-y-6">
+                      
+                      {/* Risk Level */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-bold text-gray-900 flex items-center">
+                            <Target className="w-5 h-5 mr-2" />
+                            Уровень риска
+                          </h4>
+                          <span className={`px-4 py-2 rounded-full font-bold text-sm ${
+                            pred.risk === 'high' ? 'bg-red-500 text-white' :
+                            pred.risk === 'medium' ? 'bg-yellow-500 text-white' :
+                            'bg-green-500 text-white'
+                          }`}>
+                            {pred.risk === 'high' ? 'ВЫСОКИЙ' : pred.risk === 'medium' ? 'СРЕДНИЙ' : 'НИЗКИЙ'}
+                          </span>
+                        </div>
+                        
+                        {pred.type === 'water_level' && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <p className="text-sm text-gray-600 mb-1">Текущий уровень</p>
+                              <p className="text-2xl font-bold text-gray-900">{pred.currentValue} м</p>
+                            </div>
+                            <div className="bg-red-50 rounded-lg p-4">
+                              <p className="text-sm text-gray-600 mb-1">Прогноз</p>
+                              <p className="text-2xl font-bold text-red-600">{pred.predictedValue} м</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Factors */}
+                      <div>
+                        <h4 className="font-bold text-gray-900 mb-3">Факторы влияния</h4>
+                        <div className="space-y-2">
+                          {Object.entries(pred.factors).map(([key, value]) => (
+                            <div key={key} className="flex items-start space-x-3 text-sm">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0" />
+                              <span className="text-gray-700">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Recommendations */}
+                      <div>
+                        <h4 className="font-bold text-gray-900 mb-3">Рекомендации МЧС</h4>
+                        <div className="space-y-2">
+                          {pred.recommendations.map((rec, idx) => (
+                            <div key={idx} className="flex items-start space-x-3 bg-blue-50 rounded-lg p-3">
+                              <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {idx + 1}
+                              </div>
+                              <span className="text-sm text-gray-900">{rec}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span>Модель активна</span>
+
+                    {/* Timeline & Stats */}
+                    <div className="space-y-4">
+                      
+                      {/* Timeframe */}
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="flex items-center space-x-2 text-gray-600 mb-2">
+                          <Calendar className="w-5 h-5" />
+                          <span className="text-sm font-medium">Временные рамки</span>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900">{pred.timeframe}</p>
+                      </div>
+
+                      {/* Confidence Meter */}
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="text-sm font-medium text-gray-600 mb-3">Точность прогноза</p>
+                        <div className="relative">
+                          <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                            <div 
+                              className={`h-4 transition-all ${
+                                pred.confidence >= 80 ? 'bg-green-500' :
+                                pred.confidence >= 60 ? 'bg-yellow-500' :
+                                'bg-red-500'
+                              }`}
+                              style={{ width: `${pred.confidence}%` }}
+                            />
+                          </div>
+                          <p className="text-center text-2xl font-bold text-gray-900 mt-2">
+                            {pred.confidence}%
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Affected Population */}
+                      {pred.affectedPopulation > 0 && (
+                        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
+                          <p className="text-sm font-medium text-red-700 mb-2">⚠️ Под угрозой</p>
+                          <p className="text-3xl font-bold text-red-600">
+                            {pred.affectedPopulation.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-red-700">человек</p>
+                        </div>
+                      )}
                     </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                      Подробный анализ
+                    </button>
+                    {pred.risk === 'high' && (
+                      <button className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors">
+                        Начать реагирование
+                      </button>
+                    )}
+                    <button className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
+                      Экспорт отчёта
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-
-          {/* Model Info */}
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl lg:rounded-2xl p-6 border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">О модели прогнозирования</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
-              <div>
-                <p className="font-semibold mb-2">Входные данные:</p>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Показатели датчиков (реальное время)</li>
-                  <li>• Исторические данные паводков</li>
-                  <li>• Метеорологический прогноз</li>
-                  <li>• Спутниковые снимки реки Ишим</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-semibold mb-2">Характеристики:</p>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Архитектура: LSTM нейронная сеть</li>
-                  <li>• Точность: 87% на тестовых данных</li>
-                  <li>• Обновление: каждые 5 минут</li>
-                  <li>• Горизонт: до 7 дней</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
         </div>
-      </main>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden">
-        <BottomNavigation />
       </div>
-    </div>
+    </EmergencyLayout>
   );
 };
 
-export default EmergencyPredictionPage;
+export default EmergencyPredictions;

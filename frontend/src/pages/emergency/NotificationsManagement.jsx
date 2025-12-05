@@ -1,492 +1,437 @@
-import React, { useState, useEffect } from 'react';
-import MinimalHeader from '../../components/layout/MinimalHeader';
-import BottomNavigation from '../../components/layout/BottomNavigation';
-import EmergencyDesktopSidebar from '../../components/layout/EmergencyDesktopSidebar';
-import EmergencyDesktopTopHeader from '../../components/layout/EmergencyDesktopTopHeader';
-import { useNotifications } from '../../hooks/useNotifications';
-import {
-  sendBroadcastNotification,
-  getUsersForNotification,
-  getNotificationStats,
-  getAllNotifications
-} from '../../services/notificationService';
+import React, { useState } from 'react';
+import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
+import { Bell, Send, Users, MapPin, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 
 const EmergencyNotifications = () => {
-  const { notifications, markNotificationAsRead, removeNotification } = useNotifications();
-  const [activeTab, setActiveTab] = useState('send'); // send or history
-  const [filterPriority, setFilterPriority] = useState('all');
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,
-    unread: 0,
-    important: 0
-  });
-  const [sentHistory, setSentHistory] = useState([]);
-
-  // Form state
+  const [activeTab, setActiveTab] = useState('send');
   const [notificationForm, setNotificationForm] = useState({
+    type: 'warning',
     title: '',
     message: '',
-    priority: 'high',
-    zones: [],
-    sendToAll: false
+    region: 'all',
+    targetGroup: 'all',
+    priority: 'medium'
   });
 
-  const zones = ['Центральный', 'Северный', 'Южный', 'Восточный', 'Западный'];
-
-  // Загрузка статистики и истории при монтировании компонента
-  useEffect(() => {
-    loadStats();
-    if (activeTab === 'history') {
-      loadSentHistory();
-    }
-  }, [activeTab]);
-
-  const loadStats = async () => {
-    try {
-      const result = await getNotificationStats();
-      setStats(result.data);
-    } catch (error) {
-      console.error('Ошибка загрузки статистики:', error);
-    }
-  };
-
-  const loadSentHistory = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllNotifications({ limit: 50 });
-      // Преобразуем формат данных для истории
-      const history = result.data.map(notif => ({
-        id: notif.id,
-        title: notif.title,
-        priority: notif.is_important ? 'critical' : 'high',
-        recipients: 1, // TODO: добавить подсчет получателей
-        time: formatTime(notif.created_at),
-        zones: ['Все районы'] // TODO: добавить информацию о зонах
-      }));
-      setSentHistory(history);
-    } catch (error) {
-      console.error('Ошибка загрузки истории:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatTime = (timestamp) => {
-    const now = new Date();
-    const date = new Date(timestamp);
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) {
-      return `${diffMins} мин назад`;
-    } else if (diffHours < 24) {
-      return `${diffHours} ${diffHours === 1 ? 'час' : 'часа'} назад`;
-    } else {
-      return `${diffDays} ${diffDays === 1 ? 'день' : 'дней'} назад`;
-    }
-  };
-  
-  const templates = [
+  const sentNotifications = [
     {
       id: 1,
-      name: 'Критический уровень воды',
-      title: 'Критический уровень воды в реке Ишим',
-      message: 'Уровень воды достиг критической отметки. Немедленно следуйте инструкциям МЧС и готовьтесь к эвакуации.',
-      priority: 'critical'
+      title: 'Экстренное предупреждение: Иртыш',
+      message: 'Превышен критический уровень воды. Рекомендуется эвакуация.',
+      type: 'critical',
+      region: 'Павлодарская область',
+      recipients: 15000,
+      delivered: 14850,
+      sentAt: '2024-12-05 14:30',
+      status: 'delivered'
     },
     {
       id: 2,
-      name: 'Начало эвакуации',
-      title: 'Объявлена эвакуация',
-      message: 'Началась эвакуация жителей зоны риска. Проверьте ваш статус и следуйте инструкциям спасателей.',
-      priority: 'high'
+      title: 'Предупреждение о подъёме уровня воды',
+      message: 'Ожидается повышение уровня воды в Реке Урал в течение 24 часов.',
+      type: 'warning',
+      region: 'Западно-Казахстанская область',
+      recipients: 8000,
+      delivered: 7920,
+      sentAt: '2024-12-05 12:15',
+      status: 'delivered'
     },
     {
       id: 3,
-      name: 'Повышение уровня',
-      title: 'Повышение уровня воды',
-      message: 'Уровень воды в реке повышается. Рекомендуется подготовиться к возможной эвакуации.',
-      priority: 'medium'
+      title: 'Информация о плановом ремонте ГЭС',
+      message: 'Капшагайская ГЭС будет на плановом ремонте 10-12 декабря.',
+      type: 'info',
+      region: 'Алматинская область',
+      recipients: 5000,
+      delivered: 4980,
+      sentAt: '2024-12-05 10:00',
+      status: 'delivered'
+    },
+    {
+      id: 4,
+      title: 'Завершение эвакуации',
+      message: 'Эвакуация в населённом пункте Затобольск завершена успешно.',
+      type: 'success',
+      region: 'Северо-Казахстанская область',
+      recipients: 2500,
+      delivered: 2500,
+      sentAt: '2024-12-04 18:45',
+      status: 'delivered'
     }
   ];
 
-  const handleZoneToggle = (zone) => {
-    if (notificationForm.zones.includes(zone)) {
-      setNotificationForm({
-        ...notificationForm,
-        zones: notificationForm.zones.filter(z => z !== zone)
-      });
-    } else {
-      setNotificationForm({
-        ...notificationForm,
-        zones: [...notificationForm.zones, zone]
-      });
+  const templates = [
+    {
+      id: 1,
+      name: 'Эвакуация - Начало',
+      type: 'critical',
+      title: 'СРОЧНАЯ ЭВАКУАЦИЯ',
+      message: 'Начата экстренная эвакуация в связи с повышением уровня воды. Следуйте указаниям служб МЧС. Пункты сбора: [АДРЕСА]'
+    },
+    {
+      id: 2,
+      name: 'Предупреждение о паводке',
+      type: 'warning',
+      title: 'Предупреждение о возможном паводке',
+      message: 'В ближайшие [ЧАСЫ] ожидается повышение уровня воды. Рекомендуется подготовиться к возможной эвакуации.'
+    },
+    {
+      id: 3,
+      name: 'Информационное сообщение',
+      type: 'info',
+      title: 'Информация для населения',
+      message: '[ВАШЕ СООБЩЕНИЕ]'
+    },
+    {
+      id: 4,
+      name: 'Отбой тревоги',
+      type: 'success',
+      title: 'Ситуация нормализована',
+      message: 'Угроза миновала. Можно вернуться к обычной жизнедеятельности. Благодарим за понимание.'
+    }
+  ];
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('Отправка уведомления:', notificationForm);
+    alert('Уведомление отправлено!');
+  };
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
+      case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'info': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'success': return 'bg-green-100 text-green-800 border-green-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
-  const handleTemplateSelect = (template) => {
-    setNotificationForm({
-      ...notificationForm,
-      title: template.title,
-      message: template.message,
-      priority: template.priority
-    });
-  };
-
-  const handleSendNotification = async () => {
-    try {
-      // Валидация формы
-      if (!notificationForm.title.trim()) {
-        alert('Пожалуйста, введите заголовок уведомления');
-        return;
-      }
-      if (!notificationForm.message.trim()) {
-        alert('Пожалуйста, введите текст уведомления');
-        return;
-      }
-      if (!notificationForm.sendToAll && notificationForm.zones.length === 0) {
-        alert('Пожалуйста, выберите хотя бы один район или отметьте "Отправить всем районам"');
-        return;
-      }
-
-      setLoading(true);
-
-      // Получаем список пользователей для отправки
-      let users = [];
-      if (notificationForm.sendToAll) {
-        users = await getUsersForNotification();
-      } else {
-        // Получаем пользователей из выбранных зон
-        const usersByZone = await Promise.all(
-          notificationForm.zones.map(zone => getUsersForNotification({ zone }))
-        );
-        users = usersByZone.flat();
-      }
-
-      if (users.length === 0) {
-        alert('Не найдено пользователей для отправки уведомления');
-        setLoading(false);
-        return;
-      }
-
-      // Определяем тип и важность уведомления
-      const notificationType = notificationForm.priority === 'critical' ? 'alert' : 'info';
-      const isImportant = ['critical', 'high'].includes(notificationForm.priority);
-
-      // Отправляем массовое уведомление
-      const result = await sendBroadcastNotification({
-        user_ids: users.map(u => u.id),
-        type: notificationType,
-        title: notificationForm.title,
-        message: notificationForm.message,
-        is_important: isImportant
-      });
-
-      alert(`Уведомление успешно отправлено ${result.data.recipientsCount} получателям!`);
-
-      // Очищаем форму
-      setNotificationForm({
-        title: '',
-        message: '',
-        priority: 'high',
-        zones: [],
-        sendToAll: false
-      });
-
-      // Обновляем статистику
-      loadStats();
-
-    } catch (error) {
-      console.error('Ошибка отправки уведомления:', error);
-      alert('Ошибка при отправке уведомления: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'critical': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      default: return 'bg-blue-500';
-    }
-  };
-
-  const getPriorityLabel = (priority) => {
-    switch (priority) {
-      case 'critical': return 'Критический';
-      case 'high': return 'Высокий';
-      case 'medium': return 'Средний';
-      default: return 'Низкий';
+  const getTypeLabel = (type) => {
+    switch (type) {
+      case 'critical': return 'Критическое';
+      case 'warning': return 'Предупреждение';
+      case 'info': return 'Информация';
+      case 'success': return 'Успешно';
+      default: return 'Обычное';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="lg:hidden">
-        <MinimalHeader title="Уведомления" showBack />
-      </div>
-
-      {/* Desktop Sidebar */}
-      <EmergencyDesktopSidebar />
-
-      {/* Desktop Top Header */}
-      <EmergencyDesktopTopHeader />
-
-      {/* Main Content */}
-      <main className="pt-16 pb-24 px-4 lg:ml-72 lg:pt-24 lg:pb-8">
-        <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-
-          {/* Tabs */}
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setActiveTab('send')}
-              className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'send'
-                  ? 'bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              Отправить уведомление
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'history'
-                  ? 'bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              История отправок
-            </button>
+    <EmergencyLayout>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-orange-600 to-red-500 text-white">
+          <div className="container mx-auto px-4 py-6">
+            <h1 className="text-3xl font-bold mb-2 flex items-center">
+              <Bell className="w-8 h-8 mr-3" />
+              Система массовых уведомлений
+            </h1>
+            <p className="text-orange-100">Оповещение населения о чрезвычайных ситуациях</p>
           </div>
+        </div>
 
-          {/* Send Notification Tab */}
-          {activeTab === 'send' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-              {/* Form */}
-              <div className="lg:col-span-2 space-y-4">
-                {/* Main Form Card */}
-                <div className="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Создать уведомление</h3>
-                  
-                  <div className="space-y-4">
-                    {/* Title */}
+        {/* Stats Bar */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="container mx-auto px-4 py-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Send className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Отправлено сегодня</p>
+                  <p className="text-2xl font-bold text-gray-900">{sentNotifications.length}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Доставлено</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {sentNotifications.reduce((sum, n) => sum + n.delivered, 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Получателей</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {sentNotifications.reduce((sum, n) => sum + n.recipients, 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Критических</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {sentNotifications.filter(n => n.type === 'critical').length}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="container mx-auto px-4 py-6">
+          
+          {/* Tabs */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 mb-6">
+            <div className="border-b flex">
+              <button
+                onClick={() => setActiveTab('send')}
+                className={`px-6 py-4 font-semibold transition-colors ${
+                  activeTab === 'send' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-600'
+                }`}
+              >
+                Отправить уведомление
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-6 py-4 font-semibold transition-colors ${
+                  activeTab === 'history' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-600'
+                }`}
+              >
+                История ({sentNotifications.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`px-6 py-4 font-semibold transition-colors ${
+                  activeTab === 'templates' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-600'
+                }`}
+              >
+                Шаблоны ({templates.length})
+              </button>
+            </div>
+
+            <div className="p-6">
+              
+              {/* Send Form */}
+              {activeTab === 'send' && (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    {/* Type */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Заголовок</label>
-                      <input
-                        type="text"
-                        value={notificationForm.title}
-                        onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
-                        placeholder="Введите заголовок уведомления"
-                        className="w-full px-4 py-2 lg:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Тип уведомления *
+                      </label>
+                      <select
+                        value={notificationForm.type}
+                        onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="critical">🚨 Критическое</option>
+                        <option value="warning">⚠️ Предупреждение</option>
+                        <option value="info">ℹ️ Информация</option>
+                        <option value="success">✅ Успешно</option>
+                      </select>
                     </div>
 
-                    {/* Message */}
+                    {/* Region */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Сообщение</label>
-                      <textarea
-                        value={notificationForm.message}
-                        onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
-                        placeholder="Введите текст уведомления"
-                        rows={5}
-                        className="w-full px-4 py-2 lg:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{notificationForm.message.length} / 500 символов</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Регион *
+                      </label>
+                      <select
+                        value={notificationForm.region}
+                        onChange={(e) => setNotificationForm({...notificationForm, region: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="all">Вся страна</option>
+                        <option value="almaty">Алматинская область</option>
+                        <option value="pavlodar">Павлодарская область</option>
+                        <option value="vko">ВКО</option>
+                        <option value="zko">ЗКО</option>
+                        <option value="sko">СКО</option>
+                      </select>
+                    </div>
+
+                    {/* Target Group */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Целевая группа *
+                      </label>
+                      <select
+                        value={notificationForm.targetGroup}
+                        onChange={(e) => setNotificationForm({...notificationForm, targetGroup: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="all">Все жители</option>
+                        <option value="zone">Только в зоне риска</option>
+                        <option value="registered">Зарегистрированные</option>
+                      </select>
                     </div>
 
                     {/* Priority */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Приоритет</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {['critical', 'high', 'medium', 'low'].map((priority) => (
-                          <button
-                            key={priority}
-                            onClick={() => setNotificationForm({ ...notificationForm, priority })}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                              notificationForm.priority === priority
-                                ? `${getPriorityColor(priority)} text-white shadow-md`
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {getPriorityLabel(priority)}
-                          </button>
-                        ))}
-                      </div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Приоритет доставки *
+                      </label>
+                      <select
+                        value={notificationForm.priority}
+                        onChange={(e) => setNotificationForm({...notificationForm, priority: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="high">Высокий (немедленно)</option>
+                        <option value="medium">Средний (в течение 5 мин)</option>
+                        <option value="low">Низкий (в течение часа)</option>
+                      </select>
                     </div>
+                  </div>
 
-                    {/* Zones */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Районы получателей</label>
-                      <div className="space-y-2 mb-3">
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificationForm.sendToAll}
-                            onChange={(e) => setNotificationForm({ ...notificationForm, sendToAll: e.target.checked, zones: e.target.checked ? [] : notificationForm.zones })}
-                            className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                          />
-                          <span className="text-sm text-gray-700">Отправить всем районам</span>
-                        </label>
-                      </div>
-                      {!notificationForm.sendToAll && (
-                        <div className="flex flex-wrap gap-2">
-                          {zones.map((zone) => (
-                            <button
-                              key={zone}
-                              onClick={() => handleZoneToggle(zone)}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                notificationForm.zones.includes(zone)
-                                  ? 'bg-red-600 text-white shadow-md'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                            >
-                              {zone}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  {/* Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Заголовок *
+                    </label>
+                    <input
+                      type="text"
+                      value={notificationForm.title}
+                      onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
+                      placeholder="Краткий заголовок уведомления"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
 
-                    {/* Send Button */}
+                  {/* Message */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Сообщение *
+                    </label>
+                    <textarea
+                      value={notificationForm.message}
+                      onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
+                      placeholder="Полный текст уведомления для населения"
+                      rows="5"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                    <p className="text-sm text-gray-500 mt-2">
+                      {notificationForm.message.length} / 500 символов
+                    </p>
+                  </div>
+
+                  {/* Submit Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
-                      onClick={handleSendNotification}
-                      disabled={loading}
-                      className="w-full px-6 py-3 lg:py-4 bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="submit"
+                      className="flex-1 flex items-center justify-center space-x-2 px-6 py-4 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors"
                     >
-                      {loading ? 'Отправка...' : 'Отправить уведомление'}
+                      <Send className="w-5 h-5" />
+                      <span>Отправить уведомление</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="px-6 py-4 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Предпросмотр
                     </button>
                   </div>
-                </div>
-              </div>
-
-              {/* Templates Sidebar */}
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl lg:rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Шаблоны</h3>
-                  <div className="space-y-2">
-                    {templates.map((template) => (
-                      <button
-                        key={template.id}
-                        onClick={() => handleTemplateSelect(template)}
-                        className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <p className="font-semibold text-gray-900 text-sm">{template.name}</p>
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold text-white ${getPriorityColor(template.priority)}`}>
-                            {getPriorityLabel(template.priority)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600 line-clamp-2">{template.message}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl lg:rounded-2xl shadow-sm border border-red-100 p-4 lg:p-6">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Статистика</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Всего уведомлений</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.total || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Непрочитано</p>
-                      <p className="text-2xl font-bold text-orange-600">{stats.unread || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Важных</p>
-                      <p className="text-2xl font-bold text-red-600">{stats.important || 0}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* History Tab */}
-          {activeTab === 'history' && (
-            <div className="space-y-4">
-              {/* Filter */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <select
-                  value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                >
-                  <option value="all">Все приоритеты</option>
-                  <option value="critical">Критический</option>
-                  <option value="high">Высокий</option>
-                  <option value="medium">Средний</option>
-                  <option value="low">Низкий</option>
-                </select>
-              </div>
-
-              {/* Loading Indicator */}
-              {loading && (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-                </div>
+                </form>
               )}
 
-              {/* History List */}
-              {!loading && sentHistory.length === 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-                  <p className="text-gray-500">История отправленных уведомлений пуста</p>
-                </div>
-              )}
-
-              {!loading && (
-                <div className="space-y-3">
-                  {sentHistory.map((item) => (
-                    <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* History */}
+              {activeTab === 'history' && (
+                <div className="space-y-4">
+                  {sentNotifications.map((notif) => (
+                    <div key={notif.id} className="border-2 rounded-xl p-6 hover:border-orange-300 transition-colors">
+                      <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-gray-900">{item.title}</h4>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${getPriorityColor(item.priority)}`}>
-                              {getPriorityLabel(item.priority)}
+                          <div className="flex items-center space-x-3 mb-2">
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold border-2 ${getTypeColor(notif.type)}`}>
+                              {getTypeLabel(notif.type)}
+                            </span>
+                            <span className="text-xs text-gray-500 flex items-center">
+                              <Clock className="w-4 h-4 mr-1" />
+                              {notif.sentAt}
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-2 text-sm text-gray-600">
-                            <div className="flex items-center space-x-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                              </svg>
-                              <span>{item.recipients} получателей</span>
-                            </div>
-                            <span>•</span>
-                            <span>{item.time}</span>
-                            <span>•</span>
-                            <span>{item.zones.join(', ')}</span>
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">{notif.title}</h3>
+                          <p className="text-gray-600 mb-3">{notif.message}</p>
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span className="flex items-center">
+                              <MapPin className="w-4 h-4 mr-1" />
+                              {notif.region}
+                            </span>
+                            <span className="flex items-center">
+                              <Users className="w-4 h-4 mr-1" />
+                              {notif.recipients.toLocaleString()} получателей
+                            </span>
                           </div>
                         </div>
-                        <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors">
-                          Повторить
-                        </button>
+                      </div>
+
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-600">Статус доставки</span>
+                          <span className="text-sm font-bold text-green-600">
+                            {Math.round((notif.delivered / notif.recipients) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div 
+                            className="bg-green-500 h-3 transition-all"
+                            style={{ width: `${(notif.delivered / notif.recipients) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Доставлено: {notif.delivered.toLocaleString()} из {notif.recipients.toLocaleString()}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Templates */}
+              {activeTab === 'templates' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates.map((template) => (
+                    <div key={template.id} className="border-2 rounded-xl p-6 hover:border-orange-300 transition-colors cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-lg">{template.name}</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getTypeColor(template.type)}`}>
+                          {getTypeLabel(template.type)}
+                        </span>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <p className="font-semibold text-sm text-gray-900 mb-2">{template.title}</p>
+                        <p className="text-sm text-gray-600">{template.message}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setNotificationForm({
+                            ...notificationForm,
+                            type: template.type,
+                            title: template.title,
+                            message: template.message
+                          });
+                          setActiveTab('send');
+                        }}
+                        className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors"
+                      >
+                        Использовать шаблон
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-
+          </div>
         </div>
-      </main>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden">
-        <BottomNavigation />
       </div>
-    </div>
+    </EmergencyLayout>
   );
 };
 
