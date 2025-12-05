@@ -21,8 +21,8 @@ import {
   Cloud,
   Sun
 } from 'lucide-react';
-// import Header from '../../components/layout/Header';
-// import Footer from '../../components/layout/Footer';
+import Header from '../../components/common/Header';
+import Footer from '../../components/common/Footer';
 
 const HomePage = () => {
   const [activeFeature, setActiveFeature] = useState(0);
@@ -228,7 +228,7 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a4275] via-[#0d5a94] to-[#1068a8]">
-      {/* <Header /> */}
+      <Header />
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -508,7 +508,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* <Footer /> */}
+      <Footer />
     </div>
   );
 };
