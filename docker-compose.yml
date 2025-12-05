@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oracle_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+    volumes:
+      - ./backend/database:/app/database
+    ports:
+      - "5252:5252"
+    networks:
+      - oracle_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: "http://backend:5252/api"
+    container_name: oracle_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - oracle_net
+
+networks:
+  oracle_net:
+    driver: bridge
