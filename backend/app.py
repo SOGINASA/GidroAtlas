@@ -41,9 +41,11 @@ def create_app():
     # Регистрация blueprints
     from routes import (
         auth_bp,
+        users_bp
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(users_bp, url_prefix='/api/users')
 
     # Главная страница API
     @app.route('/api')
