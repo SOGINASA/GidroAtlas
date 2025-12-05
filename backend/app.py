@@ -41,11 +41,13 @@ def create_app():
     # Регистрация blueprints
     from routes import (
         auth_bp,
-        users_bp
+        users_bp,
+        sensor_bp
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
+    app.register_blueprint(sensor_bp, url_prefix='/api/sensors')
 
     # Главная страница API
     @app.route('/api')
@@ -57,6 +59,18 @@ def create_app():
             'endpoints': {
                 'auth': '/api/auth',
             },
+            'documentation': {
+                'sensors': {
+                    'get_all': 'GET /api/sensors',
+                    'get_by_id': 'GET /api/sensors/:id',
+                    'get_critical': 'GET /api/sensors/critical',
+                    'get_average': 'GET /api/sensors/average',
+                    'get_history': 'GET /api/sensors/:id/readings?hours=24',
+                    'get_zones': 'GET /api/sensors/zones',
+                    'create': 'POST /api/sensors (admin/mchs)',
+                    'update': 'PUT /api/sensors/:id (admin/mchs)',
+                    'delete': 'DELETE /api/sensors/:id (admin)',
+                }}
         })
 
     return app
