@@ -13,9 +13,11 @@ import RegisterPage from './pages/public/RegisterPage';
 import NotFoundPage from './pages/public/NotFoundPage';
 
 // Guest pages (В разработке)
-// import GuestMap from './pages/guest/GuestMap';
-// import GuestWaterBodies from './pages/guest/GuestWaterBodies';
-// import GuestFacilities from './pages/guest/GuestFacilities';
+import GuestMap from './pages/guest/GuestMap';
+import GuestWaterBodies from './pages/guest/GuestWaterBodies';
+import GuestFacilities from './pages/guest/GuestFacilities';
+import GuestAboutPage from './pages/guest/GuestAboutPage';
+import GuestNotificationsPage from './pages/guest/GuestNotificationsPage';
 
 // Expert pages
 import ExpertDashboard from './pages/expert/ExpertDashboard';
@@ -55,9 +57,11 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Маршруты гостя (без авторизации) */}
-          <Route path="/guest/map" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Guest Map - В разработке</h1></div>} />
-          <Route path="/guest/waterbodies" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Guest Water Bodies - В разработке</h1></div>} />
-          <Route path="/guest/facilities" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Guest Facilities - В разработке</h1></div>} />
+          <Route path="/guest/map" element={<GuestMap />} />
+          <Route path="/guest/waterbodies" element={<GuestWaterBodies />} />
+          <Route path="/guest/facilities" element={<GuestFacilities />} />
+          <Route path="/guest/about" element={<GuestAboutPage />} />
+          <Route path="/guest/notifications" element={<GuestNotificationsPage />} />
 
           {/* Защищённые маршруты для экспертов */}
           <Route element={<RequireAuth allowedRoles={['expert']} />}>
