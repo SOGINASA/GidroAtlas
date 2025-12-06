@@ -57,6 +57,7 @@ import AdminLogsPage from './pages/admin/LogsPage';
 import AdminSystemAnalytics from './pages/admin/SystemAnalytics';
 import AdminSettingsPage from './pages/admin/SettingsPage';
 import AdminProfilePage from './pages/admin/ProfilePage';
+import WaterBodyDetails from './pages/admin/WaterBodyDetail';
 
 function App() {
   return (
@@ -118,6 +119,7 @@ function App() {
             <Route path="/admin/system-analytics" element={<AdminSystemAnalytics />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
             <Route path="/admin/profile" element={<AdminProfilePage />} />
+            <Route path="/admin/waterbody/:id" element={<WaterBodyDetails />} />
           </Route>
 
           {/* 404 */}
