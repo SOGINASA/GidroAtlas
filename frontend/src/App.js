@@ -12,14 +12,21 @@ import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
 import NotFoundPage from './pages/public/NotFoundPage';
 
-// Guest pages
+// Guest pages (В разработке)
 // import GuestMap from './pages/guest/GuestMap';
 // import GuestWaterBodies from './pages/guest/GuestWaterBodies';
 // import GuestFacilities from './pages/guest/GuestFacilities';
 
 // Expert pages
-// import ExpertDashboard from './pages/expert/ExpertDashboard';
-// import ExpertMap from './pages/expert/ExpertMap';
+import ExpertDashboard from './pages/expert/ExpertDashboard';
+import ExpertMapPage from './pages/expert/ExpertMapPage';
+import ExpertWaterBodiesPage from './pages/expert/WaterBodiesPage';
+import ExpertFacilitiesPage from './pages/expert/FacilitiesPage';
+import ExpertPrioritizationPage from './pages/expert/PrioritizationPage';
+import ExpertPredictionsPage from './pages/expert/ExpertPredictionsPage';
+import ExpertAnalyticsPage from './pages/expert/AnalyticsPage';
+import ExpertNotificationsPage from './pages/expert/ExpertNotificationsPage';
+import ExpertProfilePage from './pages/expert/ExpertProfilePage';
 
 // Emergency pages
 import EmergencyDashboard from './pages/emergency/EmergencyDashboard';
@@ -34,7 +41,7 @@ import EmergencyPredictions from './pages/emergency/PredictionsPage';
 import EmergencyNotifications from './pages/emergency/NotificationsManagement';
 import EmergencyProfile from './pages/emergency/ProfilePage';
 
-// Admin pages
+// Admin pages (В разработке)
 // import AdminDashboard from './pages/admin/AdminDashboard';
 
 function App() {
@@ -54,8 +61,15 @@ function App() {
 
           {/* Защищённые маршруты для экспертов */}
           <Route element={<RequireAuth allowedRoles={['expert']} />}>
-            <Route path="/expert/dashboard" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Expert Dashboard - В разработке</h1></div>} />
-            <Route path="/expert/map" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Expert Map - В разработке</h1></div>} />
+            <Route path="/expert/dashboard" element={<ExpertDashboard />} />
+            <Route path="/expert/map" element={<ExpertMapPage />} />
+            <Route path="/expert/waterbodies" element={<ExpertWaterBodiesPage />} />
+            <Route path="/expert/facilities" element={<ExpertFacilitiesPage />} />
+            <Route path="/expert/prioritization" element={<ExpertPrioritizationPage />} />
+            <Route path="/expert/predictions" element={<ExpertPredictionsPage />} />
+            <Route path="/expert/analytics" element={<ExpertAnalyticsPage />} />
+            <Route path="/expert/notifications" element={<ExpertNotificationsPage />} />
+            <Route path="/expert/profile" element={<ExpertProfilePage />} />
           </Route>
 
           {/* Защищённые маршруты для МЧС */}
