@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  MapPin, 
-  Droplets, 
-  Zap, 
-  X, 
-  Info, 
-  AlertCircle, 
-  Loader2,
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  MapPin,
+  Droplets,
+  Zap,
+  X,
   FileText,
   Calendar,
   Waves,
@@ -15,521 +12,880 @@ import {
   TrendingUp,
   Filter,
   Search,
-  Navigation,
   Layers,
-  ZoomIn,
-  ZoomOut
 } from 'lucide-react';
+import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 
-// Mock ExpertLayout component
-const ExpertLayout = ({ children }) => (
-  <div className="min-h-screen bg-gray-50">
-    {children}
-  </div>
-);
+/* ===================== ДАННЫЕ ИЗ ТВОЕГО SWIFT-КОДА ===================== */
 
-// API Configuration from ENV
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-const API_TOKEN = process.env.REACT_APP_API_TOKEN;
+// Водоёмы (WATER_OBJECTS_KZ из Swift)
+const WATER_OBJECTS_KZ = [
+  {
+    id: 'balhash',
+    name: 'Озеро Балхаш',
+    region: 'Карагандинская область',
+    resourceType: 'Озеро',
+    waterType: 'Смешанная (пресная/солоноватая)',
+    hasFauna: true,
+    passportYear: 2022,
+    condition: 3, // technicalCategory
+    lat: 46.8,
+    lng: 74.9,
+  },
+  {
+    id: 'kapshagai-reservoir',
+    name: 'Капшагайское водохранилище',
+    region: 'Алматинская область',
+    resourceType: 'Водохранилище',
+    waterType: 'Пресная',
+    hasFauna: true,
+    passportYear: 2021,
+    condition: 2,
+    lat: 43.9,
+    lng: 77.1,
+  },
+  {
+    id: 'bukhtarma-reservoir',
+    name: 'Бухтарминское водохранилище',
+    region: 'Восточно-Казахстанская область',
+    resourceType: 'Водохранилище',
+    waterType: 'Пресная',
+    hasFauna: true,
+    passportYear: 2020,
+    condition: 5,
+    lat: 47.4,
+    lng: 83.1,
+  },
+  {
+    id: 'shardara-reservoir',
+    name: 'Шардаринское водохранилище',
+    region: 'Туркестанская область',
+    resourceType: 'Водохранилище',
+    waterType: 'Пресная',
+    hasFauna: true,
+    passportYear: 2019,
+    condition: 2,
+    lat: 41.2,
+    lng: 68.3,
+  },
+  {
+    id: 'zhaysan-lake',
+    name: 'Озеро Жайсан',
+    region: 'Восточно-Казахстанская область',
+    resourceType: 'Озеро',
+    waterType: 'Пресная',
+    hasFauna: true,
+    passportYear: 2018,
+    condition: 3,
+    lat: 47.5,
+    lng: 84.8,
+  },
+  {
+    id: 'alakol-lake',
+    name: 'Озеро Алаколь',
+    region: 'Жетысуская область',
+    resourceType: 'Озеро',
+    waterType: 'Солоноватая',
+    hasFauna: true,
+    passportYear: 2023,
+    condition: 1,
+    lat: 46.2,
+    lng: 81.8,
+  },
+  {
+    id: 'tengiz-lake',
+    name: 'Озеро Тенгиз',
+    region: 'Акмолинская область',
+    resourceType: 'Озеро',
+    waterType: 'Солёная',
+    hasFauna: false,
+    passportYear: 2017,
+    condition: 4,
+    lat: 50.5,
+    lng: 69.0,
+  },
+  {
+    id: 'sorbulak-reservoir',
+    name: 'Водохранилище Сорбулак',
+    region: 'Алматинская область',
+    resourceType: 'Водохранилище',
+    waterType: 'Слабо минерализованная',
+    hasFauna: false,
+    passportYear: 2020,
+    condition: 2,
+    lat: 43.4,
+    lng: 77.3,
+  },
+];
 
-const fetchAPI = async (endpoint) => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    headers: {
-      'Authorization': `Bearer ${API_TOKEN}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return await response.json();
-};
+// ГТС (HYDRO_FACILITIES_KZ из Swift)
+const HYDRO_FACILITIES_KZ = [
+  {
+    id: 'bukhtarma-hpp',
+    name: 'Бухтарминская ГЭС',
+    region: 'Восточно-Казахстанская область',
+    facilityType: 'ГЭС',
+    condition: 3, // conditionCategory
+    lat: 47.4,
+    lng: 83.1,
+  },
+  {
+    id: 'kapshagai-hpp',
+    name: 'Капшагайская ГЭС',
+    region: 'Алматинская область',
+    facilityType: 'ГЭС',
+    condition: 2,
+    lat: 43.9,
+    lng: 77.1,
+  },
+  {
+    id: 'shardara-hpp',
+    name: 'Шардаринская ГЭС',
+    region: 'Туркестанская область',
+    facilityType: 'ГЭС',
+    condition: 4,
+    lat: 41.2,
+    lng: 68.3,
+  },
+  {
+    id: 'oskemen-hpp',
+    name: 'Усть-Каменогорская ГЭС',
+    region: 'Восточно-Казахстанская область',
+    facilityType: 'ГЭС',
+    condition: 2,
+    lat: 49.9,
+    lng: 82.6,
+  },
+  {
+    id: 'kokterek-dam',
+    name: 'Плотина Коктерек',
+    region: 'Алматинская область',
+    facilityType: 'Плотина',
+    condition: 5,
+    lat: 43.2,
+    lng: 76.8,
+  },
+  {
+    id: 'sorbulak-dam',
+    name: 'Плотина Сорбулак',
+    region: 'Алматинская область',
+    facilityType: 'Плотина',
+    condition: 1,
+    lat: 43.4,
+    lng: 77.3,
+  },
+];
 
-const ExpertMapPage = () => {
-  const [selectedObject, setSelectedObject] = useState(null);
-  const [showLegend, setShowLegend] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [waterBodies, setWaterBodies] = useState([]);
-  const [facilities, setFacilities] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCondition, setFilterCondition] = useState('all');
-  const [filterRegion, setFilterRegion] = useState('all');
-  const [showLayers, setShowLayers] = useState({
-    waterBodies: true,
-    facilities: true,
-    regions: true
-  });
+// Критические зоны рек (CRITICAL_ZONES_KZ из Swift)
+const CRITICAL_ZONES_KZ = [
+  {
+    id: 'irtysh-pavlodar',
+    name: 'Иртыш (Павлодар)',
+    region: 'Павлодарская область',
+    level: 'critical', // .critical
+    description: 'Высокий уровень воды, риск выходa на пойму',
+    condition: 5, // маппим level -> условную категорию
+    lat: 52.3,
+    lng: 76.9,
+  },
+  {
+    id: 'ural-uralsk',
+    name: 'Урал (Уральск)',
+    region: 'Западно-Казахстанская область',
+    level: 'warning',
+    description: 'Повышенный уровень, требуется мониторинг',
+    condition: 4,
+    lat: 51.2,
+    lng: 51.4,
+  },
+  {
+    id: 'syrdarya-kyzylorda',
+    name: 'Сырдарья (Кызылорда)',
+    region: 'Кызылординская область',
+    level: 'critical',
+    description: 'Критический уровень, возможен выход воды на пойму',
+    condition: 5,
+    lat: 44.8,
+    lng: 65.5,
+  },
+];
+
+/* ===================== Leaflet карта ===================== */
+
+const LeafletMap = ({
+  waterObjects,
+  facilities,
+  criticalZones,
+  activeLayer,
+  onObjectClick,
+}) => {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
+  const [loadingMap, setLoadingMap] = useState(true);
 
   useEffect(() => {
-    fetchData();
+    const timer = setTimeout(() => setLoadingMap(false), 300);
+    return () => clearTimeout(timer);
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current && mapRef.current && window.L && !loadingMap) {
+      initializeMap();
+    }
 
-      const [waterBodiesData, facilitiesData] = await Promise.all([
-        fetchAPI('/waterbodies'),
-        fetchAPI('/facilities')
-      ]);
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingMap]);
 
-      const processedWaterBodies = (waterBodiesData || []).map(wb => ({
-        ...wb,
-        lat: wb.coordinates?.lat || wb.latitude || (46 + Math.random() * 8),
-        lng: wb.coordinates?.lng || wb.longitude || (50 + Math.random() * 40),
-        condition: wb.technicalCondition || wb.condition || 3
-      }));
+  useEffect(() => {
+    if (mapInstanceRef.current && !loadingMap) {
+      updateMarkers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waterObjects, facilities, criticalZones, activeLayer, loadingMap]);
 
-      const processedFacilities = (facilitiesData || []).map(f => ({
-        ...f,
-        lat: f.coordinates?.lat || f.latitude || (46 + Math.random() * 8),
-        lng: f.coordinates?.lng || f.longitude || (50 + Math.random() * 40),
-        condition: f.technicalCondition || f.condition || 3,
-        capacity: f.technicalSpecs?.capacity || f.capacity
-      }));
+  const initializeMap = () => {
+    const L = window.L;
 
-      setWaterBodies(processedWaterBodies);
-      setFacilities(processedFacilities);
-    } catch (err) {
-      console.error('Ошибка загрузки данных:', err);
-      setError('Не удалось загрузить данные. Попробуйте позже.');
-    } finally {
-      setLoading(false);
+    mapInstanceRef.current = L.map(mapRef.current, {
+      center: [48.0, 68.0], // центр по Казахстану, как в iOS
+      zoom: 5,
+      zoomControl: false,
+    });
+
+    // OSM тайлы
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(mapInstanceRef.current);
+
+    // Кастомный зум
+    const zoomControl = L.control({ position: 'topright' });
+    zoomControl.onAdd = function () {
+      const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      div.innerHTML = `
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+          <button class="zoom-in-btn w-10 h-10 flex items-center justify-center hover:bg-gray-50 border-b border-gray-200 transition-colors">
+            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+          </button>
+          <button class="zoom-out-btn w-10 h-10 flex items-center justify-center hover:bg-gray-50 transition-colors">
+            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+
+      L.DomEvent.disableClickPropagation(div);
+
+      div.querySelector('.zoom-in-btn').onclick = () => {
+        mapInstanceRef.current.zoomIn();
+      };
+
+      div.querySelector('.zoom-out-btn').onclick = () => {
+        mapInstanceRef.current.zoomOut();
+      };
+
+      return div;
+    };
+    zoomControl.addTo(mapInstanceRef.current);
+
+    updateMarkers();
+  };
+
+  const updateMarkers = () => {
+    if (!window.L || !mapInstanceRef.current) return;
+    const L = window.L;
+
+    // удаляем старые маркеры
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    const conditionColors = {
+      1: '#10B981',
+      2: '#84CC16',
+      3: '#F59E0B',
+      4: '#F97316',
+      5: '#EF4444',
+    };
+
+    // Водоёмы
+    if (activeLayer.waterObjects) {
+      (waterObjects || []).forEach((w) => {
+        const color = conditionColors[w.condition] || '#3B82F6';
+
+        const marker = L.marker([w.lat, w.lng], {
+          icon: L.divIcon({
+            html: `
+              <div class="relative group">
+                <div class="w-11 h-11 rounded-full border-4 border-white shadow-xl flex items-center justify-center transition-transform group-hover:scale-110"
+                     style="background-color: ${color}">
+                  <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            `,
+            className: 'custom-water-marker',
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+          }),
+        });
+
+        marker.on('click', () => {
+          onObjectClick && onObjectClick(w, 'water');
+        });
+
+        marker.addTo(mapInstanceRef.current);
+        markersRef.current.push(marker);
+      });
+    }
+
+    // ГТС
+    if (activeLayer.facilities) {
+      (facilities || []).forEach((f) => {
+        const color = conditionColors[f.condition] || '#6B7280';
+
+        const marker = L.marker([f.lat, f.lng], {
+          icon: L.divIcon({
+            html: `
+              <div class="relative group">
+                <div class="w-11 h-11 rounded-lg border-4 border-white shadow-xl flex items-center justify-center transition-transform group-hover:scale-110"
+                     style="background-color: ${color}">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                  </svg>
+                </div>
+              </div>
+            `,
+            className: 'custom-facility-marker',
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+          }),
+        });
+
+        marker.on('click', () => {
+          onObjectClick && onObjectClick(f, 'facility');
+        });
+
+        marker.addTo(mapInstanceRef.current);
+        markersRef.current.push(marker);
+      });
+    }
+
+    // Критические зоны рек
+    if (activeLayer.criticalZones) {
+      (criticalZones || []).forEach((z) => {
+        const color = z.level === 'critical' ? '#EF4444' : '#F97316';
+
+        const marker = L.marker([z.lat, z.lng], {
+          icon: L.divIcon({
+            html: `
+              <div class="relative group">
+                <div class="w-14 h-14 rounded-full bg-[${color}] bg-opacity-20 flex items-center justify-center animate-ping-slow"></div>
+                <div class="w-10 h-10 rounded-full border-4 border-white shadow-xl flex items-center justify-center"
+                     style="background-color: ${color}">
+                  <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L2 22h20L12 2zm0 14v-4m0 6h.01"></path>
+                  </svg>
+                </div>
+              </div>
+            `,
+            className: 'custom-critical-marker',
+            iconSize: [48, 48],
+            iconAnchor: [24, 24],
+          }),
+        });
+
+        marker.on('click', () => {
+          onObjectClick && onObjectClick(z, 'critical');
+        });
+
+        marker.addTo(mapInstanceRef.current);
+        markersRef.current.push(marker);
+      });
     }
   };
 
+  if (loadingMap) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-sky-600 mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Загрузка карты…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <div ref={mapRef} className="w-full h-full" />;
+};
+
+/* ===================== Страница эксперта ===================== */
+
+const ExpertMapPage = () => {
+  const [selectedObject, setSelectedObject] = useState(null);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCondition, setFilterCondition] = useState('all');
+  const [filterRegion, setFilterRegion] = useState('all');
+
+  const [activeLayer, setActiveLayer] = useState({
+    waterObjects: true,
+    facilities: true,
+    criticalZones: true,
+  });
+
   const getConditionColor = (condition) => {
-    const colors = { 1: '#10B981', 2: '#84CC16', 3: '#F59E0B', 4: '#F97316', 5: '#EF4444' };
+    const colors = {
+      1: '#10B981',
+      2: '#84CC16',
+      3: '#F59E0B',
+      4: '#F97316',
+      5: '#EF4444',
+    };
     return colors[condition] || colors[3];
   };
 
   const getConditionLabel = (condition) => {
-    const labels = { 1: 'Отличное', 2: 'Хорошее', 3: 'Удовлетворительное', 4: 'Плохое', 5: 'Критическое' };
+    const labels = {
+      1: 'Отличное',
+      2: 'Хорошее',
+      3: 'Удовлетворительное',
+      4: 'Плохое',
+      5: 'Критическое',
+    };
     return labels[condition] || 'Неизвестно';
   };
 
-  const getTypeLabel = (type) => {
-    const labels = {
-      river: 'Река', 
-      lake: 'Озеро', 
-      reservoir: 'Водохранилище',
-      canal: 'Канал',
-      hydropower: 'ГЭС', 
-      dam: 'Плотина',
-      lock: 'Шлюз',
-      pumping_station: 'Насосная станция'
-    };
-    return labels[type] || type;
+  const getTypeLabel = (object, objectType) => {
+    if (objectType === 'water') {
+      return object.resourceType || 'Водный объект';
+    }
+    if (objectType === 'facility') {
+      return object.facilityType || 'ГТС';
+    }
+    if (objectType === 'critical') {
+      return 'Критическая зона реки';
+    }
+    return 'Объект';
   };
 
-  const calculatePriority = (condition, passportDate) => {
-    if (!passportDate) return { score: 0, level: 'low' };
-    
+  const calculatePriority = (condition, passportYear) => {
+    if (!passportYear) return { score: 0, level: 'low' };
     const currentYear = new Date().getFullYear();
-    const passportYear = new Date(passportDate).getFullYear();
     const passportAge = currentYear - passportYear;
-    
     const score = (6 - condition) * 3 + passportAge;
-    
+
     let level;
     if (score >= 12) level = 'high';
     else if (score >= 6) level = 'medium';
     else level = 'low';
-    
+
     return { score, level, passportAge };
   };
 
-  const handleObjectClick = async (object, objectType) => {
-    try {
-      let fullData;
-      if (objectType === 'waterbody') {
-        fullData = await fetchAPI(`/waterbodies/${object.id}`);
-      } else {
-        fullData = await fetchAPI(`/facilities/${object.id}`);
-      }
-      
-      const priority = calculatePriority(
-        fullData.technicalCondition || object.condition,
-        fullData.passportDate
-      );
-      
-      setSelectedObject({
-        ...object,
-        ...fullData,
-        objectType,
-        lat: fullData.coordinates?.lat || object.lat,
-        lng: fullData.coordinates?.lng || object.lng,
-        condition: fullData.technicalCondition || object.condition,
-        priority
-      });
-    } catch (err) {
-      console.error('Ошибка загрузки деталей:', err);
-      const priority = calculatePriority(object.condition, object.passportDate);
-      setSelectedObject({ ...object, objectType, priority });
-    }
+  const handleObjectClick = (object, objectType) => {
+    const priority = calculatePriority(object.condition, object.passportYear);
+    setSelectedObject({ ...object, objectType, priority });
   };
 
-  // Фильтрация объектов
-  const filteredWaterBodies = waterBodies.filter(wb => {
-    const matchesSearch = wb.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCondition = filterCondition === 'all' || wb.condition === parseInt(filterCondition);
-    const matchesRegion = filterRegion === 'all' || wb.region === filterRegion;
+  // Фильтры
+  const waterObjects = WATER_OBJECTS_KZ;
+  const facilities = HYDRO_FACILITIES_KZ;
+  const criticalZones = CRITICAL_ZONES_KZ;
+
+  const filteredWaterObjects = waterObjects.filter((w) => {
+    const matchesSearch = w.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCondition =
+      filterCondition === 'all' || w.condition === parseInt(filterCondition);
+    const matchesRegion = filterRegion === 'all' || w.region === filterRegion;
     return matchesSearch && matchesCondition && matchesRegion;
   });
 
-  const filteredFacilities = facilities.filter(f => {
+  const filteredFacilities = facilities.filter((f) => {
     const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCondition = filterCondition === 'all' || f.condition === parseInt(filterCondition);
+    const matchesCondition =
+      filterCondition === 'all' || f.condition === parseInt(filterCondition);
     const matchesRegion = filterRegion === 'all' || f.region === filterRegion;
     return matchesSearch && matchesCondition && matchesRegion;
   });
 
-  // Получаем уникальные регионы
-  const regions = [...new Set([...waterBodies, ...facilities].map(o => o.region))].filter(Boolean).sort();
+  const filteredCriticalZones = criticalZones.filter((z) => {
+    const matchesSearch = z.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCondition =
+      filterCondition === 'all' || z.condition === parseInt(filterCondition);
+    const matchesRegion = filterRegion === 'all' || z.region === filterRegion;
+    return matchesSearch && matchesCondition && matchesRegion;
+  });
+
+  const regions = [
+    ...new Set(
+      [...waterObjects, ...facilities, ...criticalZones].map((o) => o.region),
+    ),
+  ]
+    .filter(Boolean)
+    .sort();
+
+  const toggleLayer = (layer) => {
+    setActiveLayer((prev) => ({ ...prev, [layer]: !prev[layer] }));
+  };
 
   const getPriorityBadge = (priority) => {
     if (!priority) return null;
-    
+
     const styles = {
-      high: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', label: 'Высокий' },
-      medium: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300', label: 'Средний' },
-      low: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', label: 'Низкий' }
+      high: {
+        bg: 'bg-red-100',
+        text: 'text-red-800',
+        border: 'border-red-300',
+        label: 'Высокий',
+      },
+      medium: {
+        bg: 'bg-yellow-100',
+        text: 'text-yellow-800',
+        border: 'border-yellow-300',
+        label: 'Средний',
+      },
+      low: {
+        bg: 'bg-green-100',
+        text: 'text-green-800',
+        border: 'border-green-300',
+        label: 'Низкий',
+      },
     };
-    
+
     const style = styles[priority.level] || styles.low;
-    
+
     return (
-      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
+      <div
+        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${style.bg} ${style.text} ${style.border}`}
+      >
         <span className="font-semibold text-sm">{style.label}</span>
         <span className="text-xs">({priority.score})</span>
       </div>
     );
   };
 
+  const totalGood = [
+    ...filteredWaterObjects,
+    ...filteredFacilities,
+    ...filteredCriticalZones,
+  ].filter((o) => o.condition <= 2).length;
+  const totalMedium = [
+    ...filteredWaterObjects,
+    ...filteredFacilities,
+    ...filteredCriticalZones,
+  ].filter((o) => o.condition === 3).length;
+  const totalBad = [
+    ...filteredWaterObjects,
+    ...filteredFacilities,
+    ...filteredCriticalZones,
+  ].filter((o) => o.condition >= 4).length;
+
   return (
     <ExpertLayout>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 lg:px-8 py-6 lg:py-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center space-x-3 mb-4">
+      <div className="min-h-screen bg-slate-50">
+        {/* HEADER */}
+        <div className="bg-gradient-to-r from-sky-700 to-cyan-600 text-white">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
+            <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
               <MapPin className="w-8 h-8" />
-              <h1 className="text-2xl lg:text-3xl font-bold">Карта объектов (Эксперт)</h1>
-            </div>
-            <p className="text-sm lg:text-base text-blue-100">
-              Полный доступ к данным водоёмов и ГТС с приоритизацией обследований
+              Карта объектов (Эксперт)
+            </h1>
+            <p className="text-sm lg:text-base text-sky-100 mt-2">
+              Водоёмы, ГТС и критические зоны по Казахстану — данные синхронны с
+              мобильным приложением
             </p>
           </div>
         </div>
 
-        {/* Filters Bar */}
-        <div className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Поиск по названию..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+        {/* CONTENT */}
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* LEFT SIDEBAR */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* ФИЛЬТРЫ */}
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-sky-600" />
+                  Фильтры
+                </h3>
 
-              {/* Region Filter */}
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <select
-                  value={filterRegion}
-                  onChange={(e) => setFilterRegion(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                >
-                  <option value="all">Все регионы</option>
-                  {regions.map(region => (
-                    <option key={region} value={region}>{region}</option>
-                  ))}
-                </select>
-              </div>
+                <div className="space-y-3 text-sm">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Поиск по названию…"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                    />
+                  </div>
 
-              {/* Condition Filter */}
-              <div className="relative">
-                <AlertTriangle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <select
-                  value={filterCondition}
-                  onChange={(e) => setFilterCondition(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                >
-                  <option value="all">Все состояния</option>
-                  <option value="1">Категория 1</option>
-                  <option value="2">Категория 2</option>
-                  <option value="3">Категория 3</option>
-                  <option value="4">Категория 4</option>
-                  <option value="5">Категория 5</option>
-                </select>
-              </div>
+                  <div>
+                    <span className="block text-xs font-semibold text-gray-500 mb-1">
+                      Регион
+                    </span>
+                    <select
+                      value={filterRegion}
+                      onChange={(e) => setFilterRegion(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm bg-white"
+                    >
+                      <option value="all">Все регионы</option>
+                      {regions.map((region) => (
+                        <option key={region} value={region}>
+                          {region}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Reset Button */}
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterRegion('all');
-                  setFilterCondition('all');
-                }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-              >
-                Сбросить фильтры
-              </button>
-            </div>
-          </div>
-        </div>
+                  <div>
+                    <span className="block text-xs font-semibold text-gray-500 mb-1">
+                      Категория состояния
+                    </span>
+                    <select
+                      value={filterCondition}
+                      onChange={(e) => setFilterCondition(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm bg-white"
+                    >
+                      <option value="all">Все</option>
+                      <option value="1">Категория 1</option>
+                      <option value="2">Категория 2</option>
+                      <option value="3">Категория 3</option>
+                      <option value="4">Категория 4</option>
+                      <option value="5">Категория 5</option>
+                    </select>
+                  </div>
 
-        {/* Map Container */}
-        <div className="relative">
-          {/* Loading Overlay */}
-          {loading && (
-            <div className="absolute inset-0 bg-white/80 z-30 flex items-center justify-center">
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-                <p className="text-gray-600 font-semibold">Загрузка данных...</p>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-red-50 border border-red-200 text-red-800 px-6 py-3 rounded-xl shadow-lg max-w-md">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Map */}
-          <div className="w-full h-[calc(100vh-300px)] bg-gradient-to-br from-blue-100 via-green-50 to-blue-50 relative overflow-hidden">
-            {/* Grid pattern */}
-            <div className="absolute inset-0 opacity-20">
-              <div className="w-full h-full" style={{
-                backgroundImage: 'linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px)',
-                backgroundSize: '50px 50px'
-              }} />
-            </div>
-
-            {/* Kazakhstan outline mockup */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-gray-300 text-center">
-                <MapPin className="w-24 h-24 mx-auto mb-4 opacity-20" />
-                <p className="text-xl font-semibold opacity-50">Карта Казахстана</p>
-              </div>
-            </div>
-
-            {/* Water Bodies Markers */}
-            {!loading && showLayers.waterBodies && filteredWaterBodies.map((wb) => (
-              <button
-                key={`wb-${wb.id}`}
-                onClick={() => handleObjectClick(wb, 'waterbody')}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 group"
-                style={{ 
-                  left: `${(wb.lng - 45) * 8}%`, 
-                  top: `${(55 - wb.lat) * 10}%` 
-                }}
-              >
-                <div 
-                  className="w-12 h-12 rounded-full border-4 border-white shadow-xl flex items-center justify-center transition-transform hover:scale-125 relative"
-                  style={{ backgroundColor: getConditionColor(wb.condition) }}
-                >
-                  <Droplets className="w-6 h-6 text-white" />
-                  {wb.condition >= 4 && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full animate-pulse border-2 border-white" />
-                  )}
-                </div>
-                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black/80 text-white px-3 py-1 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  {wb.name}
-                </div>
-              </button>
-            ))}
-
-            {/* Facilities Markers */}
-            {!loading && showLayers.facilities && filteredFacilities.map((f) => (
-              <button
-                key={`f-${f.id}`}
-                onClick={() => handleObjectClick(f, 'facility')}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 group"
-                style={{ 
-                  left: `${(f.lng - 45) * 8}%`, 
-                  top: `${(55 - f.lat) * 10}%` 
-                }}
-              >
-                <div 
-                  className="w-12 h-12 rounded-lg border-4 border-white shadow-xl flex items-center justify-center transition-transform hover:scale-125 relative"
-                  style={{ backgroundColor: getConditionColor(f.condition) }}
-                >
-                  <Zap className="w-6 h-6 text-white" />
-                  {f.condition >= 4 && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full animate-pulse border-2 border-white" />
-                  )}
-                </div>
-                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black/80 text-white px-3 py-1 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  {f.name}
-                </div>
-              </button>
-            ))}
-
-            {/* Map Controls */}
-            <div className="absolute top-4 right-4 space-y-2 z-20">
-              <button
-                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-                title="Приблизить"
-              >
-                <ZoomIn className="w-5 h-5 text-gray-700" />
-              </button>
-              <button
-                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-                title="Отдалить"
-              >
-                <ZoomOut className="w-5 h-5 text-gray-700" />
-              </button>
-              <button
-                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-                title="Моё местоположение"
-              >
-                <Navigation className="w-5 h-5 text-gray-700" />
-              </button>
-              <button
-                onClick={() => setShowLayers(prev => ({ ...prev, waterBodies: !prev.waterBodies, facilities: !prev.facilities }))}
-                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-                title="Слои карты"
-              >
-                <Layers className="w-5 h-5 text-gray-700" />
-              </button>
-            </div>
-
-            {/* Legend */}
-            {showLegend && (
-              <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-xl p-4 max-w-xs z-20">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-gray-900">Легенда</h3>
                   <button
-                    onClick={() => setShowLegend(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterRegion('all');
+                      setFilterCondition('all');
+                    }}
+                    className="w-full mt-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
                   >
-                    <X className="w-4 h-4" />
+                    Сбросить фильтры
                   </button>
                 </div>
-                <div className="space-y-2 text-sm">
+              </div>
+
+              {/* СЛОИ */}
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center">
+                  <Layers className="w-5 h-5 mr-2 text-sky-600" />
+                  Слои карты
+                </h3>
+
+                <div className="space-y-3 text-sm">
+                  <label className="flex items-center space-x-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={activeLayer.waterObjects}
+                      onChange={() => toggleLayer('waterObjects')}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <Droplets className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">
+                      Водоёмы ({filteredWaterObjects.length})
+                    </span>
+                  </label>
+
+                  <label className="flex items-center space-x-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={activeLayer.facilities}
+                      onChange={() => toggleLayer('facilities')}
+                      className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                    />
+                    <Zap className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">
+                      ГТС ({filteredFacilities.length})
+                    </span>
+                  </label>
+
+                  <label className="flex items-center space-x-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={activeLayer.criticalZones}
+                      onChange={() => toggleLayer('criticalZones')}
+                      className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                    />
+                    <AlertTriangle className="w-5 h-5 text-red-500 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">
+                      Критические зоны ({filteredCriticalZones.length})
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* ЛЕГЕНДА */}
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h3 className="text-lg font-bold mb-4">Легенда</h3>
+                <div className="space-y-3 text-sm">
                   <div className="flex items-center space-x-2">
-                    <Droplets className="w-5 h-5 text-blue-500" />
-                    <span>Водоёмы</span>
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: getConditionColor(5) }}
+                    />
+                    <span>Критическое (Кат. 5)</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Zap className="w-5 h-5 text-purple-500" />
-                    <span>ГТС</span>
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: getConditionColor(4) }}
+                    />
+                    <span>Плохое (Кат. 4)</span>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Техническое состояние:</p>
-                    {[1, 2, 3, 4, 5].map((cat) => (
-                      <div key={cat} className="flex items-center justify-between mb-1">
-                        <div className="flex items-center space-x-2">
-                          <div 
-                            className="w-4 h-4 rounded-full border border-gray-300"
-                            style={{ backgroundColor: getConditionColor(cat) }}
-                          />
-                          <span className="text-xs">Кат. {cat}</span>
-                        </div>
-                        <span className="text-xs text-gray-500">{getConditionLabel(cat)}</span>
-                      </div>
-                    ))}
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: getConditionColor(3) }}
+                    />
+                    <span>Удовлетворительное (Кат. 3)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: getConditionColor(2) }}
+                    />
+                    <span>Хорошее (Кат. 2)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: getConditionColor(1) }}
+                    />
+                    <span>Отличное (Кат. 1)</span>
                   </div>
                 </div>
               </div>
-            )}
 
-            {!showLegend && (
-              <button
-                onClick={() => setShowLegend(true)}
-                className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 z-20 flex items-center space-x-2"
+              {/* СТАТИСТИКА */}
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h3 className="text-lg font-bold mb-4">Статистика</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Водоёмов:</span>
+                    <span className="font-bold text-lg text-sky-600">
+                      {filteredWaterObjects.length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">ГТС:</span>
+                    <span className="font-bold text-lg text-purple-600">
+                      {filteredFacilities.length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Критические зоны:</span>
+                    <span className="font-bold text-lg text-red-600">
+                      {filteredCriticalZones.length}
+                    </span>
+                  </div>
+                  <div className="h-px bg-gray-200 my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Кат. 1–2:</span>
+                    <span className="font-bold text-lg text-green-600">
+                      {totalGood}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Кат. 3:</span>
+                    <span className="font-bold text-lg text-orange-500">
+                      {totalMedium}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Кат. 4–5:</span>
+                    <span className="font-bold text-lg text-red-600">
+                      {totalBad}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT: MAP */}
+            <div className="lg:col-span-3">
+              <div
+                className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
+                style={{ height: 'calc(100vh - 220px)' }}
               >
-                <Info className="w-5 h-5" />
-                <span>Легенда</span>
-              </button>
-            )}
-          </div>
-        </div>
+                <div className="relative w-full h-full">
+                  <LeafletMap
+                    waterObjects={filteredWaterObjects}
+                    facilities={filteredFacilities}
+                    criticalZones={filteredCriticalZones}
+                    activeLayer={activeLayer}
+                    onObjectClick={handleObjectClick}
+                  />
 
-        {/* Stats Bar */}
-        <div className="bg-white border-t border-gray-200 px-4 lg:px-8 py-4">
-          <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : filteredWaterBodies.length}
-              </p>
-              <p className="text-sm text-gray-600">Водоёмов</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : filteredFacilities.length}
-              </p>
-              <p className="text-sm text-gray-600">ГТС</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 
-                  [...filteredWaterBodies, ...filteredFacilities].filter(o => o.condition <= 2).length}
-              </p>
-              <p className="text-sm text-gray-600">Хорошее</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 
-                  [...filteredWaterBodies, ...filteredFacilities].filter(o => o.condition === 3).length}
-              </p>
-              <p className="text-sm text-gray-600">Удовлетворит.</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-red-600">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 
-                  [...filteredWaterBodies, ...filteredFacilities].filter(o => o.condition >= 4).length}
-              </p>
-              <p className="text-sm text-gray-600">Критическое</p>
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="text-slate-300 text-center">
+                      <MapPin className="w-20 h-20 mx-auto mb-2 opacity-20" />
+                      <p className="text-lg font-semibold opacity-40">
+                        Интерактивная карта Казахстана
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Object Details Modal */}
+      {/* MODAL */}
       {selectedObject && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-50"
             onClick={() => setSelectedObject(null)}
           />
           <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-3xl bg-white rounded-2xl shadow-2xl z-50 overflow-hidden max-h-[90vh]">
-            <div 
+            {/* header */}
+            <div
               className="px-6 py-4 text-white"
-              style={{ background: `linear-gradient(135deg, ${getConditionColor(selectedObject.condition)} 0%, ${getConditionColor(selectedObject.condition)}dd 100%)` }}
+              style={{
+                background: `linear-gradient(135deg, ${getConditionColor(
+                  selectedObject.condition,
+                )} 0%, ${getConditionColor(selectedObject.condition)}dd 100%)`,
+              }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-2">
-                    {selectedObject.objectType === 'waterbody' ? (
+                    {selectedObject.objectType === 'water' && (
                       <Droplets className="w-6 h-6" />
-                    ) : (
+                    )}
+                    {selectedObject.objectType === 'facility' && (
                       <Zap className="w-6 h-6" />
                     )}
+                    {selectedObject.objectType === 'critical' && (
+                      <AlertTriangle className="w-6 h-6" />
+                    )}
                     <span className="text-sm font-medium opacity-90">
-                      {getTypeLabel(selectedObject.type || selectedObject.resourceType)}
+                      {getTypeLabel(selectedObject, selectedObject.objectType)}
                     </span>
                   </div>
-                  <h2 className="text-2xl font-bold mb-1">{selectedObject.name}</h2>
-                  {selectedObject.name_kz && (
-                    <p className="text-sm opacity-80">{selectedObject.name_kz}</p>
-                  )}
+                  <h2 className="text-2xl font-bold mb-1">
+                    {selectedObject.name}
+                  </h2>
+                  <p className="text-sm opacity-80">
+                    {selectedObject.region || 'Регион не указан'}
+                  </p>
                 </div>
                 <button
                   onClick={() => setSelectedObject(null)}
@@ -540,20 +896,33 @@ const ExpertMapPage = () => {
               </div>
             </div>
 
+            {/* body */}
             <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* основные карточки */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Регион</p>
-                  <p className="font-semibold text-gray-900">{selectedObject.region || 'Не указан'}</p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedObject.region || 'Не указан'}
+                  </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Техн. состояние</p>
+                  <p className="text-sm text-gray-600 mb-1">Состояние</p>
                   <div className="flex items-center space-x-2">
-                    <div 
+                    <div
                       className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: getConditionColor(selectedObject.condition) }}
+                      style={{
+                        backgroundColor: getConditionColor(
+                          selectedObject.condition,
+                        ),
+                      }}
                     />
-                    <span className="font-semibold text-gray-900">Кат. {selectedObject.condition}</span>
+                    <span className="font-semibold text-gray-900">
+                      Кат. {selectedObject.condition}{' '}
+                      <span className="text-xs text-gray-600 ml-1">
+                        ({getConditionLabel(selectedObject.condition)})
+                      </span>
+                    </span>
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 col-span-2 md:col-span-1">
@@ -562,121 +931,147 @@ const ExpertMapPage = () => {
                 </div>
               </div>
 
-              {selectedObject.waterType && (
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center space-x-2 mb-2">
+              {/* Спец-инфа по типам */}
+              {selectedObject.objectType === 'water' && (
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 space-y-2">
+                  <div className="flex items-center space-x-2 mb-1">
                     <Waves className="w-5 h-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-700">Тип воды</p>
+                    <p className="text-sm font-semibold text-blue-700">
+                      Характеристики водоёма
+                    </p>
                   </div>
-                  <p className="text-lg font-bold text-blue-900">
-                    {selectedObject.waterType === 'fresh' ? 'Пресная' : 'Непресная'}
+                  <p className="text-sm text-blue-900">
+                    Тип ресурса:{' '}
+                    <span className="font-semibold">
+                      {selectedObject.resourceType}
+                    </span>
+                  </p>
+                  <p className="text-sm text-blue-900">
+                    Тип воды:{' '}
+                    <span className="font-semibold">
+                      {selectedObject.waterType}
+                    </span>
+                  </p>
+                  <p className="text-sm text-blue-900">
+                    Биоресурсы:{' '}
+                    <span className="font-semibold">
+                      {selectedObject.hasFauna
+                        ? 'Есть рыбные ресурсы'
+                        : 'Биоресурсы ограничены'}
+                    </span>
                   </p>
                 </div>
               )}
 
-              {selectedObject.fauna !== undefined && (
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Fish className="w-5 h-5 text-green-600" />
-                    <p className="text-sm font-semibold text-green-700">Наличие фауны</p>
-                  </div>
-                  <p className="text-lg font-bold text-green-900">
-                    {selectedObject.fauna ? 'Да' : 'Нет'}
-                  </p>
-                </div>
-              )}
-
-              {selectedObject.capacity && (
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <div className="flex items-center space-x-2 mb-2">
+              {selectedObject.objectType === 'facility' && (
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200 space-y-2">
+                  <div className="flex items-center space-x-2 mb-1">
                     <Zap className="w-5 h-5 text-purple-600" />
-                    <p className="text-sm font-semibold text-purple-700">Мощность</p>
+                    <p className="text-sm font-semibold text-purple-700">
+                      Гидротехническое сооружение
+                    </p>
                   </div>
-                  <p className="text-2xl font-bold text-purple-900">{selectedObject.capacity} МВт</p>
+                  <p className="text-sm text-purple-900">
+                    Тип:{' '}
+                    <span className="font-semibold">
+                      {selectedObject.facilityType}
+                    </span>
+                  </p>
                 </div>
               )}
 
-              {selectedObject.passportDate && (
+              {selectedObject.objectType === 'critical' && (
+                <div className="bg-red-50 rounded-lg p-4 border border-red-200 space-y-2">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <p className="text-sm font-semibold text-red-700">
+                      Критическая зона
+                    </p>
+                  </div>
+                  <p className="text-sm text-red-900">
+                    Уровень:{' '}
+                    <span className="font-semibold">
+                      {selectedObject.level === 'critical'
+                        ? 'Критический'
+                        : 'Предупреждение'}
+                    </span>
+                  </p>
+                  <p className="text-sm text-red-900">
+                    {selectedObject.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Паспорт / год */}
+              {selectedObject.passportYear && (
                 <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
                   <div className="flex items-center space-x-2 mb-2">
                     <Calendar className="w-5 h-5 text-amber-600" />
-                    <p className="text-sm font-semibold text-amber-700">Паспорт объекта</p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-amber-900">
-                        {new Date(selectedObject.passportDate).toLocaleDateString('ru-RU')}
-                      </p>
-                      <p className="text-sm text-amber-700">
-                        Возраст: {new Date().getFullYear() - new Date(selectedObject.passportDate).getFullYear()} лет
-                      </p>
-                    </div>
-                    {selectedObject.pdfUrl && (
-                      <button
-                        onClick={() => window.open(selectedObject.pdfUrl, '_blank')}
-                        className="flex items-center space-x-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span className="text-sm font-medium">Открыть PDF</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  <p className="text-sm font-semibold text-gray-700">Координаты</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500">Широта</p>
-                    <p className="font-semibold text-gray-900">{selectedObject.lat?.toFixed(6)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Долгота</p>
-                    <p className="font-semibold text-gray-900">{selectedObject.lng?.toFixed(6)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {selectedObject.priority && selectedObject.priority.score > 0 && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-700">Расчёт приоритета обследования</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 mb-3">
-                    <p className="text-sm text-gray-600 mb-2">
-                      <span className="font-mono bg-blue-100 px-2 py-1 rounded text-blue-900">
-                        (6 - {selectedObject.condition}) × 3 + {selectedObject.priority.passportAge} = {selectedObject.priority.score}
-                      </span>
+                    <p className="text-sm font-semibold text-amber-700">
+                      Паспорт объекта
                     </p>
                   </div>
-                  <div className="space-y-2 text-xs text-gray-600">
-                    <p>• Высокий приоритет: ≥12 баллов</p>
-                    <p>• Средний приоритет: 6-11 баллов</p>
-                    <p>• Низкий приоритет: &lt;6 баллов</p>
-                  </div>
-                  {selectedObject.priority.level === 'high' && (
-                    <div className="mt-3 bg-red-100 border border-red-300 rounded-lg p-3 flex items-start space-x-2">
-                      <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-semibold text-red-900">Требуется срочное обследование</p>
-                        <p className="text-xs text-red-700 mt-1">
-                          Объект имеет высокий приоритет и требует внимания специалистов
-                        </p>
-                      </div>
-                    </div>
+                  <p className="font-semibold text-amber-900">
+                    Год паспортизации: {selectedObject.passportYear} г.
+                  </p>
+                  {selectedObject.priority?.passportAge !== undefined && (
+                    <p className="text-sm text-amber-700 mt-1">
+                      Возраст паспорта:{' '}
+                      {selectedObject.priority.passportAge} лет
+                    </p>
                   )}
                 </div>
               )}
 
-              {selectedObject.description && (
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Описание</p>
-                  <p className="text-sm text-gray-600">{selectedObject.description}</p>
+              {/* Координаты */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center space-x-2 mb-2">
+                  <MapPin className="w-5 h-5 text-gray-600" />
+                  <p className="text-sm font-semibold text-gray-700">
+                    Координаты
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Широта</p>
+                    <p className="font-semibold text-gray-900">
+                      {selectedObject.lat?.toFixed(6)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Долгота</p>
+                    <p className="font-semibold text-gray-900">
+                      {selectedObject.lng?.toFixed(6)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Приоритет (формула) */}
+              {selectedObject.priority && selectedObject.priority.score > 0 && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                    <p className="text-sm font-semibold text-blue-700">
+                      Расчёт приоритета обследования
+                    </p>
+                  </div>
+                  {selectedObject.priority.passportAge !== undefined && (
+                    <div className="bg-white rounded-lg p-3 mb-3">
+                      <p className="text-sm text-gray-600 mb-2">
+                        <span className="font-mono bg-blue-100 px-2 py-1 rounded text-blue-900">
+                          (6 - {selectedObject.condition}) × 3 +{' '}
+                          {selectedObject.priority.passportAge} ={' '}
+                          {selectedObject.priority.score}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-2 text-xs text-gray-600">
+                    <p>• Высокий приоритет: ≥ 12 баллов</p>
+                    <p>• Средний приоритет: 6–11 баллов</p>
+                    <p>• Низкий приоритет: &lt; 6 баллов</p>
+                  </div>
                 </div>
               )}
 
@@ -688,7 +1083,7 @@ const ExpertMapPage = () => {
                   Закрыть
                 </button>
                 <button
-                  className="flex-1 bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+                  className="flex-1 bg-sky-600 text-white py-3 rounded-xl hover:bg-sky-700 transition-colors font-semibold flex items-center justify-center space-x-2"
                 >
                   <FileText className="w-5 h-5" />
                   <span>Подробнее</span>

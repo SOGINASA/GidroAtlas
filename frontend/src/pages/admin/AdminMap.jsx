@@ -1,3 +1,4 @@
+/* global L */
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Globe,
@@ -30,11 +31,169 @@ import AdminLayout from '../../components/navigation/admin/AdminLayout';
 const MAPTILER_BASE_URL = 'https://api.maptiler.com/maps';
 const MAPTILER_API_KEY = process.env.REACT_APP_MAPTILER_API_KEY;
 
+const HAS_MAPTILER_KEY = Boolean(MAPTILER_API_KEY);
+
 // =============================
 // HYDRO API CONFIG (твоя API)
 // =============================
 const HYDRO_API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
 const HYDRO_API_TOKEN = process.env.REACT_APP_API_TOKEN || '';
+
+// === Те же объекты, что на Expert-карте (iOS) ===
+
+// Водоёмы Казахстана (аналог WATER_OBJECTS_KZ из SwiftUI)
+const WATER_OBJECTS_KZ = [
+  {
+    id: 'balhash',
+    name: 'Озеро Балхаш',
+    region: 'Карагандинская область',
+    condition: 3,        // technicalCategory: 3
+    lat: 46.8,
+    lng: 74.9
+  },
+  {
+    id: 'kapshagai-reservoir',
+    name: 'Капшагайское водохранилище',
+    region: 'Алматинская область',
+    condition: 2,
+    lat: 43.9,
+    lng: 77.1
+  },
+  {
+    id: 'bukhtarma-reservoir',
+    name: 'Бухтарминское водохранилище',
+    region: 'Восточно-Казахстанская область',
+    condition: 5,
+    lat: 47.4,
+    lng: 83.1
+  },
+  {
+    id: 'shardara-reservoir',
+    name: 'Шардаринское водохранилище',
+    region: 'Туркестанская область',
+    condition: 2,
+    lat: 41.2,
+    lng: 68.3
+  },
+  {
+    id: 'zhaysan-lake',
+    name: 'Озеро Жайсан',
+    region: 'Восточно-Казахстанская область',
+    condition: 3,
+    lat: 47.5,
+    lng: 84.8
+  },
+  {
+    id: 'alakol-lake',
+    name: 'Озеро Алаколь',
+    region: 'Жетысуская область',
+    condition: 1,
+    lat: 46.2,
+    lng: 81.8
+  },
+  {
+    id: 'tengiz-lake',
+    name: 'Озеро Тенгиз',
+    region: 'Акмолинская область',
+    condition: 4,
+    lat: 50.5,
+    lng: 69.0
+  },
+  {
+    id: 'sorbulak-reservoir',
+    name: 'Водохранилище Сорбулак',
+    region: 'Алматинская область',
+    condition: 2,
+    lat: 43.4,
+    lng: 77.3
+  }
+];
+
+// Гидротехнические сооружения (аналог HYDRO_FACILITIES_KZ)
+const HYDRO_FACILITIES_KZ = [
+  {
+    id: 'bukhtarma-hpp',
+    name: 'Бухтарминская ГЭС',
+    type: 'hydropower',
+    region: 'Восточно-Казахстанская область',
+    condition: 3,      // conditionCategory: 3
+    lat: 47.4,
+    lng: 83.1
+  },
+  {
+    id: 'kapshagai-hpp',
+    name: 'Капшагайская ГЭС',
+    type: 'hydropower',
+    region: 'Алматинская область',
+    condition: 2,
+    lat: 43.9,
+    lng: 77.1
+  },
+  {
+    id: 'shardara-hpp',
+    name: 'Шардаринская ГЭС',
+    type: 'hydropower',
+    region: 'Туркестанская область',
+    condition: 4,
+    lat: 41.2,
+    lng: 68.3
+  },
+  {
+    id: 'u-kamenogorsk-hpp',
+    name: 'Усть-Каменогорская ГЭС',
+    type: 'hydropower',
+    region: 'Восточно-Казахстанская область',
+    condition: 2,
+    lat: 49.9,
+    lng: 82.6
+  },
+  {
+    id: 'kokterek-dam',
+    name: 'Плотина Коктерек',
+    type: 'dam',
+    region: 'Алматинская область',
+    condition: 5,
+    lat: 43.2,
+    lng: 76.8
+  },
+  {
+    id: 'sorbulak-dam',
+    name: 'Плотина Сорбулак',
+    type: 'dam',
+    region: 'Алматинская область',
+    condition: 1,
+    lat: 43.4,
+    lng: 77.3
+  }
+];
+
+// Критические зоны по рекам (аналог CRITICAL_ZONES_KZ)
+const CRITICAL_ZONES_KZ = [
+  {
+    id: 'irtysh-pavlodar',
+    name: 'Иртыш (Павлодар)',
+    region: 'Павлодарская область',
+    level: 'critical',   // .critical
+    lat: 52.3,
+    lng: 76.9
+  },
+  {
+    id: 'ural-uralsk',
+    name: 'Урал (Уральск)',
+    region: 'Западно-Казахстанская область',
+    level: 'warning',   // .warning
+    lat: 51.2,
+    lng: 51.4
+  },
+  {
+    id: 'syrdarya-kyzylorda',
+    name: 'Сырдарья (Кызылорда)',
+    region: 'Кызылординская область',
+    level: 'critical',
+    lat: 44.8,
+    lng: 65.5
+  }
+];
 
 const apiFetch = async (endpoint, options = {}) => {
   const url = `${HYDRO_API_BASE_URL}${endpoint}`;
@@ -53,6 +212,41 @@ const apiFetch = async (endpoint, options = {}) => {
 
   if (resp.status === 204) return null;
   return resp.json();
+};
+
+const getTileLayerConfig = (view = 'standard') => {
+  // Если нет ключа MapTiler — используем OpenStreetMap
+  if (!HAS_MAPTILER_KEY) {
+    return {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      options: {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }
+    };
+  }
+
+  let tileUrl;
+  switch (view) {
+    case 'satellite':
+      tileUrl = `${MAPTILER_BASE_URL}/satellite/{z}/{x}/{y}.jpg?key=${MAPTILER_API_KEY}`;
+      break;
+    case 'hybrid':
+      tileUrl = `${MAPTILER_BASE_URL}/hybrid/{z}/{x}/{y}.jpg?key=${MAPTILER_API_KEY}`;
+      break;
+    default:
+      tileUrl = `${MAPTILER_BASE_URL}/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`;
+  }
+
+  return {
+    url: tileUrl,
+    options: {
+      attribution: '© MapTiler © OpenStreetMap contributors',
+      maxZoom: 18,
+      tileSize: 512,
+      zoomOffset: -1
+    }
+  };
 };
 
 // =============================
@@ -108,12 +302,10 @@ const LeafletMap = ({
     });
 
     // Базовый слой
-    L.tileLayer(`${MAPTILER_BASE_URL}/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`, {
-      attribution: '© MapTiler © OpenStreetMap contributors',
-      maxZoom: 18,
-      tileSize: 512,
-      zoomOffset: -1
-    }).addTo(mapInstanceRef.current);    
+    const { url, options } = getTileLayerConfig('standard');
+
+L.tileLayer(url, options).addTo(mapInstanceRef.current);
+  
 
     // Клик по карте в режиме редактирования
     mapInstanceRef.current.on('click', (e) => {
@@ -212,43 +404,62 @@ const LeafletMap = ({
     }
   };
 
-  const changeMapView = () => {
-    if (!window.L || !mapInstanceRef.current) return;
-    
-    const L = window.L;
-    
-    mapInstanceRef.current.eachLayer((layer) => {
-      if (layer instanceof L.TileLayer) {
-        mapInstanceRef.current.removeLayer(layer);
-      }
+  if (activeLayers.criticalZones && mapObjects.criticalZones) {
+    mapObjects.criticalZones.forEach(zone => {
+      if (!zone.lat || !zone.lng) return;
+  
+      const color = zone.level === 'critical' ? '#EF4444' : '#F97316';
+  
+      const marker = L.marker([zone.lat, zone.lng], {
+        icon: L.divIcon({
+          html: `
+            <div class="relative">
+              <div class="w-10 h-10 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
+                   style="background-color: ${color}">
+                <span class="text-xl">⚠️</span>
+              </div>
+            </div>
+          `,
+          className: 'custom-marker',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        })
+      });
+  
+      marker.bindPopup(`
+        <div class="p-2 min-w-[220px]">
+          <h3 class="font-bold text-lg mb-1">${zone.name}</h3>
+          <p class="text-xs text-gray-500 mb-2">${zone.region || ''}</p>
+          <p class="text-sm mb-1">
+            <span class="font-semibold">Уровень:</span>
+            ${zone.level === 'critical' ? 'Критический' : 'Предупреждение'}
+          </p>
+        </div>
+      `);
+  
+      marker.addTo(mapInstanceRef.current);
+      markersRef.current.push(marker);
     });
+  }  
 
-    let tileUrl;
-switch (mapView) {
-  case 'satellite':
-    tileUrl = `${MAPTILER_BASE_URL}/satellite/{z}/{x}/{y}.jpg?key=${MAPTILER_API_KEY}`;
-    break;
-  case 'hybrid':
-    tileUrl = `${MAPTILER_BASE_URL}/hybrid/{z}/{x}/{y}.jpg?key=${MAPTILER_API_KEY}`;
-    break;
-  default:
-    tileUrl = `${MAPTILER_BASE_URL}/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`;
-}
-
-L.tileLayer(tileUrl, {
-  attribution: '© MapTiler © OpenStreetMap contributors',
-  maxZoom: 18,
-  tileSize: 512,
-  zoomOffset: -1
-}).addTo(mapInstanceRef.current);
-
-  };
-
-  const zoomIn = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.zoomIn();
-    }
-  };
+  const changeMapView = () => {
+    const changeMapView = () => {
+      if (!window.L || !mapInstanceRef.current) return;
+      const L = window.L;
+    
+      mapInstanceRef.current.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer) {
+          mapInstanceRef.current.removeLayer(layer);
+        }
+      });
+    
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(mapInstanceRef.current);
+    };
+    
+  };  
 
   const zoomOut = () => {
     if (mapInstanceRef.current) {
@@ -289,14 +500,6 @@ L.tileLayer(tileUrl, {
           </div>
         </div>
       )}
-
-      {/* Скрытые кнопки для отладки (оставил как было) */}
-      <div style={{ display: 'none' }}>
-        <button onClick={zoomIn}>Zoom In</button>
-        <button onClick={zoomOut}>Zoom Out</button>
-        <button onClick={fitBounds}>Fit Bounds</button>
-        <button onClick={resetView}>Reset</button>
-      </div>
     </div>
   );
 };
@@ -331,7 +534,8 @@ const AdminMap = () => {
 
   const [mapObjects, setMapObjects] = useState({
     waterBodies: [],
-    facilities: []
+    facilities: [],
+    criticalZones: [] 
   });
 
   // === Создание объекта ===
@@ -364,54 +568,50 @@ const AdminMap = () => {
       ]);
 
       if (waterBodiesData || facilitiesData) {
+        const waterBodiesList = (waterBodiesData && waterBodiesData.length)
+          ? waterBodiesData.map(wb => ({
+              id: wb.id,
+              name: wb.name,
+              region: wb.region || wb.area || '',
+              condition: wb.condition || wb.technicalCondition || 3,
+              lat: wb.lat || wb.latitude,
+              lng: wb.lng || wb.longitude
+            }))
+          : WATER_OBJECTS_KZ;
+      
+        const facilitiesList = (facilitiesData && facilitiesData.length)
+          ? facilitiesData.map(fac => ({
+              id: fac.id,
+              name: fac.name,
+              type: fac.type || fac.facilityType || 'hydropower',
+              region: fac.region || fac.area || '',
+              condition: fac.condition || fac.technicalCondition || 3,
+              lat: fac.lat || fac.latitude,
+              lng: fac.lng || fac.longitude
+            }))
+          : HYDRO_FACILITIES_KZ;
+      
         setMapObjects({
-          waterBodies: (waterBodiesData || []).map(wb => ({
-            id: wb.id,
-            name: wb.name,
-            region: wb.region || wb.area || '',
-            condition: wb.condition || wb.technicalCondition || 3,
-            lat: wb.lat || wb.latitude,
-            lng: wb.lng || wb.longitude
-          })),
-          facilities: (facilitiesData || []).map(fac => ({
-            id: fac.id,
-            name: fac.name,
-            type: fac.type || fac.facilityType || 'hydropower',
-            region: fac.region || fac.area || '',
-            condition: fac.condition || fac.technicalCondition || 3,
-            lat: fac.lat || fac.latitude,
-            lng: fac.lng || fac.longitude
-          }))
+          waterBodies: waterBodiesList,
+          facilities: facilitiesList,
+          criticalZones: CRITICAL_ZONES_KZ
         });
+      
       } else {
-        // Фоллбэк на мок-данные, если API недоступно
+        // Фоллбэк на «экспертные» константы
         setMapObjects({
-          waterBodies: [
-            { id: 1, name: 'Озеро Балхаш', region: 'Алматинская область', condition: 3, lat: 46.8, lng: 75.0 },
-            { id: 2, name: 'Река Иртыш', region: 'Павлодарская область', condition: 5, lat: 52.3, lng: 76.9 },
-            { id: 3, name: 'Капшагайское вдхр.', region: 'Алматинская область', condition: 2, lat: 43.9, lng: 77.1 }
-          ],
-          facilities: [
-            { id: 1, name: 'Бухтарминская ГЭС', type: 'hydropower', region: 'ВКО', condition: 2, lat: 47.5, lng: 83.1 },
-            { id: 2, name: 'Капшагай ГЭС', type: 'hydropower', region: 'Алматинская область', condition: 3, lat: 43.9, lng: 77.1 },
-            { id: 3, name: 'Плотина Сорбулак', type: 'dam', region: 'Алматинская область', condition: 4, lat: 43.3, lng: 77.0 }
-          ]
+          waterBodies: WATER_OBJECTS_KZ,
+          facilities: HYDRO_FACILITIES_KZ,
+          criticalZones: CRITICAL_ZONES_KZ
         });
       }
+      
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
-      // На всякий случай оставим мок-данные
       setMapObjects({
-        waterBodies: [
-          { id: 1, name: 'Озеро Балхаш', region: 'Алматинская область', condition: 3, lat: 46.8, lng: 75.0 },
-          { id: 2, name: 'Река Иртыш', region: 'Павлодарская область', condition: 5, lat: 52.3, lng: 76.9 },
-          { id: 3, name: 'Капшагайское вдхр.', region: 'Алматинская область', condition: 2, lat: 43.9, lng: 77.1 }
-        ],
-        facilities: [
-          { id: 1, name: 'Бухтарминская ГЭС', type: 'hydropower', region: 'ВКО', condition: 2, lat: 47.5, lng: 83.1 },
-          { id: 2, name: 'Капшагай ГЭС', type: 'hydropower', region: 'Алматинская область', condition: 3, lat: 43.9, lng: 77.1 },
-          { id: 3, name: 'Плотина Сорбулак', type: 'dam', region: 'Алматинская область', condition: 4, lat: 43.3, lng: 77.0 }
-        ]
+        waterBodies: WATER_OBJECTS_KZ,
+        facilities: HYDRO_FACILITIES_KZ,
+        criticalZones: CRITICAL_ZONES_KZ
       });
     }
   };
