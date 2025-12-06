@@ -58,6 +58,8 @@ import AdminSystemAnalytics from './pages/admin/SystemAnalytics';
 import AdminSettingsPage from './pages/admin/SettingsPage';
 import AdminProfilePage from './pages/admin/ProfilePage';
 import WaterBodyDetails from './pages/admin/WaterBodyDetail';
+import FacilityDetails from './pages/admin/FacilityDetail';
+import CriticalZoneDetails from './pages/admin/CriticalZoneDetail';
 
 function App() {
   return (
@@ -104,6 +106,11 @@ function App() {
             <Route path="/emergency/profile" element={<EmergencyProfile />} />
           </Route>
 
+          {/* Общие маршруты деталей - доступны для всех (включая гостей) */}
+          <Route path="/admin/waterbody/:id" element={<WaterBodyDetails />} />
+          <Route path="/admin/facility/:id" element={<FacilityDetails />} />
+          <Route path="/admin/critical-zone/:id" element={<CriticalZoneDetails />} />
+
           {/* Защищённые маршруты для админов */}
           <Route element={<RequireAuth allowedRoles={['admin']} />}>
             <Route path="/admin/overview" element={<AdminDashboard />} />
@@ -119,7 +126,6 @@ function App() {
             <Route path="/admin/system-analytics" element={<AdminSystemAnalytics />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
             <Route path="/admin/profile" element={<AdminProfilePage />} />
-            <Route path="/admin/waterbody/:id" element={<WaterBodyDetails />} />
           </Route>
 
           {/* 404 */}

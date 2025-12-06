@@ -4,6 +4,7 @@
 
 /frontend/node_modules
 /frontend\node_modules\async\applyEach.js
+/frontend/build
 /.pnp
 .pnp.js
 
@@ -26,3 +27,7 @@ backend/.env
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+/.claude
+nul
+

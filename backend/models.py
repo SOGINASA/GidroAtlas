@@ -450,6 +450,15 @@ class WaterBody(db.Model):
     average_depth = db.Column(db.Float, nullable=True)  # средняя глубина (м)
     volume = db.Column(db.Float, nullable=True)  # объём воды (м³)
 
+    # Техническое состояние и паспорт
+    technical_condition = db.Column(db.Integer, default=3)  # 1..5 (1 = отлично, 5 = критично)
+    passport_year = db.Column(db.Integer, nullable=True)  # год паспортизации
+    passport_date = db.Column(db.DateTime, nullable=True)  # дата паспортизации
+
+    # Дополнительные характеристики для водоёмов
+    water_type = db.Column(db.String(50), nullable=True)  # fresh, salt, mixed
+    has_fauna = db.Column(db.Boolean, default=True)  # есть ли биоресурсы
+
     # Связи
     related_sensor_ids = db.Column(db.JSON, nullable=True)
     related_facility_ids = db.Column(db.JSON, nullable=True)
@@ -460,11 +469,36 @@ class WaterBody(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    def calculate_priority(self):
+        """Вычисляет приоритетный балл (аналогично HydroFacility)"""
+        if not self.passport_year:
+            return {'score': 0, 'level': 'low', 'passportAge': 0}
+
+        current_year = datetime.now().year
+        passport_age = current_year - self.passport_year
+        priority_score = (6 - self.technical_condition) * 3 + passport_age
+
+        if priority_score >= 12:
+            priority_level = 'high'
+        elif priority_score >= 6:
+            priority_level = 'medium'
+        else:
+            priority_level = 'low'
+
+        return {
+            'score': priority_score,
+            'level': priority_level,
+            'passportAge': passport_age
+        }
+
     def to_dict(self):
+        priority = self.calculate_priority()
+
         return {
             'id': self.id,
             'name': self.name,
             'type': self.type,
+            'resourceType': self.type,
             'region': self.region,
             'coordinates': self.coordinates,
             'length': self.length,
@@ -472,6 +506,13 @@ class WaterBody(db.Model):
             'maxDepth': self.max_depth,
             'averageDepth': self.average_depth,
             'volume': self.volume,
+            'technicalCondition': self.technical_condition,
+            'condition': self.technical_condition,
+            'passportYear': self.passport_year,
+            'passportDate': self.passport_date.isoformat() if self.passport_date else None,
+            'waterType': self.water_type,
+            'hasFauna': self.has_fauna,
+            'priority': priority,
             'relatedSensors': self.related_sensor_ids,
             'relatedFacilities': self.related_facility_ids,
             'description': self.description,

@@ -5,6 +5,7 @@ from routes.notifications import notifications_bp
 from routes.evacuations import evacuations_bp
 from routes.facilities import facilities_bp
 from routes.reports import reports_bp
+from routes.map import map_bp
 
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     'evacuations_bp',
     'facilities_bp',
     'reports_bp',
+    'map_bp',
 ]

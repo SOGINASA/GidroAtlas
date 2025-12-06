@@ -9,7 +9,7 @@ import {
   FileText,
   AlertTriangle
 } from 'lucide-react';
-import AdminLayout from '../../components/navigation/admin/AdminLayout';
+import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { getWaterBodyDetails } from '../../services/mapApi';
 
 const statusColorByCondition = (condition) => {
@@ -80,20 +80,20 @@ const WaterBodyDetail = () => {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <EmergencyLayout>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Загрузка данных...</p>
           </div>
         </div>
-      </AdminLayout>
+      </EmergencyLayout>
     );
   }
 
   if (error || !waterBody) {
     return (
-      <AdminLayout>
+      <EmergencyLayout>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -107,14 +107,14 @@ const WaterBodyDetail = () => {
             </button>
           </div>
         </div>
-      </AdminLayout>
+      </EmergencyLayout>
     );
   }
 
   const w = waterBody;
 
   return (
-    <AdminLayout>
+    <EmergencyLayout>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* HEADER */}
         <div className="border-b border-gray-200 bg-white">
@@ -316,7 +316,7 @@ const WaterBodyDetail = () => {
           </>
         )}
       </div>
-    </AdminLayout>
+    </EmergencyLayout>
   );
 };
 

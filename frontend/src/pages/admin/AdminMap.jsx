@@ -24,6 +24,15 @@ import {
   Info
 } from 'lucide-react';
 import AdminLayout from '../../components/navigation/admin/AdminLayout';
+import {
+  getAllMapData,
+  createWaterBody,
+  updateWaterBody,
+  deleteWaterBody,
+  createHydroFacility,
+  updateHydroFacility,
+  deleteHydroFacility
+} from '../../services/mapApi';
 
 // =============================
 // MAP TILES (MapTiler)
@@ -561,42 +570,46 @@ const AdminMap = () => {
     try {
       console.log('Загрузка данных карты с фильтрами:', filters);
 
-      // Пример реального API вызова
-      const [waterBodiesData, facilitiesData] = await Promise.all([
-        apiFetch('/admin/map/waterbodies').catch(() => null),
-        apiFetch('/admin/map/facilities').catch(() => null)
-      ]);
+      const data = await getAllMapData(filters);
 
-      if (waterBodiesData || facilitiesData) {
-        const waterBodiesList = (waterBodiesData && waterBodiesData.length)
-          ? waterBodiesData.map(wb => ({
-              id: wb.id,
-              name: wb.name,
-              region: wb.region || wb.area || '',
-              condition: wb.condition || wb.technicalCondition || 3,
-              lat: wb.lat || wb.latitude,
-              lng: wb.lng || wb.longitude
-            }))
-          : WATER_OBJECTS_KZ;
-      
-        const facilitiesList = (facilitiesData && facilitiesData.length)
-          ? facilitiesData.map(fac => ({
-              id: fac.id,
-              name: fac.name,
-              type: fac.type || fac.facilityType || 'hydropower',
-              region: fac.region || fac.area || '',
-              condition: fac.condition || fac.technicalCondition || 3,
-              lat: fac.lat || fac.latitude,
-              lng: fac.lng || fac.longitude
-            }))
-          : HYDRO_FACILITIES_KZ;
-      
+      if (data) {
+        const waterBodiesList = (data.waterBodies || [])
+          .filter(wb => {
+            const lat = wb.coordinates?.lat || wb.lat || wb.latitude;
+            const lng = wb.coordinates?.lng || wb.lng || wb.longitude;
+            return lat && lng;
+          })
+          .map(wb => ({
+            id: wb.id,
+            name: wb.name,
+            region: wb.region || wb.area || '',
+            condition: wb.condition || wb.technicalCondition || 3,
+            lat: wb.coordinates?.lat || wb.lat || wb.latitude,
+            lng: wb.coordinates?.lng || wb.lng || wb.longitude
+          }));
+
+        const facilitiesList = (data.facilities || [])
+          .filter(fac => {
+            const lat = fac.coordinates?.lat || fac.lat || fac.latitude;
+            const lng = fac.coordinates?.lng || fac.lng || fac.longitude;
+            return lat && lng;
+          })
+          .map(fac => ({
+            id: fac.id,
+            name: fac.name,
+            type: fac.type || fac.facilityType || 'hydropower',
+            region: fac.region || fac.area || '',
+            condition: fac.condition || fac.technicalCondition || 3,
+            lat: fac.coordinates?.lat || fac.lat || fac.latitude,
+            lng: fac.coordinates?.lng || fac.lng || fac.longitude
+          }));
+
         setMapObjects({
           waterBodies: waterBodiesList,
           facilities: facilitiesList,
-          criticalZones: CRITICAL_ZONES_KZ
+          criticalZones: data.criticalZones || CRITICAL_ZONES_KZ
         });
-      
+
       } else {
         // Фоллбэк на «экспертные» константы
         setMapObjects({
@@ -648,17 +661,14 @@ const AdminMap = () => {
     if (!window.confirm('Вы уверены, что хотите удалить этот объект?')) return;
 
     try {
-      let endpoint;
       if (object.type === 'waterBody') {
-        endpoint = `/admin/map/waterbodies/${object.id}`;
-        await apiFetch(endpoint, { method: 'DELETE' }).catch(() => null);
+        await deleteWaterBody(object.id);
         setMapObjects(prev => ({
           ...prev,
           waterBodies: prev.waterBodies.filter(w => w.id !== object.id)
         }));
       } else {
-        endpoint = `/admin/map/facilities/${object.id}`;
-        await apiFetch(endpoint, { method: 'DELETE' }).catch(() => null);
+        await deleteHydroFacility(object.id);
         setMapObjects(prev => ({
           ...prev,
           facilities: prev.facilities.filter(f => f.id !== object.id)
@@ -667,7 +677,7 @@ const AdminMap = () => {
       setSelectedObject(null);
     } catch (error) {
       console.error('Ошибка удаления:', error);
-      alert('Не удалось удалить объект. Проверьте API.');
+      alert('Не удалось удалить объект.');
     }
   };
 
@@ -770,35 +780,18 @@ const AdminMap = () => {
     try {
       let created;
       if (newObject.objectKind === 'waterBody') {
-        created = await apiFetch('/admin/map/waterbodies', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        }).catch(() => null);
-
-        // Если API вернул объект, используем его, иначе формируем сами
-        const objectToAdd = created || {
-          id: Date.now(),
-          ...payload
-        };
+        created = await createWaterBody(payload);
 
         setMapObjects(prev => ({
           ...prev,
-          waterBodies: [...prev.waterBodies, objectToAdd]
+          waterBodies: [...prev.waterBodies, created]
         }));
       } else {
-        created = await apiFetch('/admin/map/facilities', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        }).catch(() => null);
-
-        const objectToAdd = created || {
-          id: Date.now(),
-          ...payload
-        };
+        created = await createHydroFacility(payload);
 
         setMapObjects(prev => ({
           ...prev,
-          facilities: [...prev.facilities, objectToAdd]
+          facilities: [...prev.facilities, created]
         }));
       }
 

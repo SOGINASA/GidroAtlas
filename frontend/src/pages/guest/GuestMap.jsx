@@ -18,24 +18,8 @@ import {
 // CONFIG / HELPERS
 // =====================
 
-// API Configuration from ENV
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-const API_TOKEN = process.env.REACT_APP_API_TOKEN;
-
-const fetchAPI = async (endpoint) => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    headers: {
-      'Authorization': `Bearer ${API_TOKEN}`,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return await response.json();
-};
+// API Integration
+import { getAllMapData } from '../../services/mapApi';
 
 // Мок критических зон (как на странице МЧС)
 const MOCK_CRITICAL_ZONES = [
@@ -477,44 +461,37 @@ const GuestMapPage = () => {
       setLoading(true);
       setError(null);
 
-      // Параллельная загрузка данных
-      const [waterBodiesData, facilitiesData] = await Promise.all([
-        fetchAPI('/waterbodies'),
-        fetchAPI('/facilities')
-      ]);
+      // Загрузка всех данных через API
+      const data = await getAllMapData({ region: selectedRegion });
 
-      const processedWaterBodies = (waterBodiesData || []).map(wb => ({
+      // Фильтруем объекты с валидными координатами
+      const waterBodies = (data.waterBodies || []).filter(wb => {
+        const lat = wb.coordinates?.lat || wb.lat || wb.latitude;
+        const lng = wb.coordinates?.lng || wb.lng || wb.longitude;
+        return lat && lng;
+      }).map(wb => ({
         ...wb,
-        // Генерируем координаты если их нет
-        lat: wb.coordinates?.lat || wb.latitude || (46 + Math.random() * 8),
-        lng: wb.coordinates?.lng || wb.longitude || (50 + Math.random() * 40),
-        condition: wb.technicalCondition || wb.condition || 3
+        lat: wb.coordinates?.lat || wb.lat || wb.latitude,
+        lng: wb.coordinates?.lng || wb.lng || wb.longitude,
+        condition: wb.condition || wb.technicalCondition || 3
       }));
 
-      const processedFacilities = (facilitiesData || []).map(f => ({
-        ...f,
-        lat: f.coordinates?.lat || f.latitude || (46 + Math.random() * 8),
-        lng: f.coordinates?.lng || f.longitude || (50 + Math.random() * 40),
-        condition: f.technicalCondition || f.condition || 3,
-        capacity: f.technicalSpecs?.capacity || f.capacity
+      const facilities = (data.facilities || []).filter(fac => {
+        const lat = fac.coordinates?.lat || fac.lat || fac.latitude;
+        const lng = fac.coordinates?.lng || fac.lng || fac.longitude;
+        return lat && lng;
+      }).map(fac => ({
+        ...fac,
+        lat: fac.coordinates?.lat || fac.lat || fac.latitude,
+        lng: fac.coordinates?.lng || fac.lng || fac.longitude,
+        condition: fac.condition || fac.technicalCondition || 3
       }));
 
-      setWaterBodies(processedWaterBodies);
-      setFacilities(processedFacilities);
+      setWaterBodies(waterBodies);
+      setFacilities(facilities);
     } catch (err) {
       console.error('Ошибка загрузки данных:', err);
-      setError('Не удалось загрузить данные с сервера. Используются демонстрационные данные.');
-
-      // Fallback к mock данным при ошибке
-      setWaterBodies([
-        { id: 1, name: 'Река Иртыш', type: 'river', region: 'ВКО', condition: 4, lat: 49.9, lng: 82.6 },
-        { id: 2, name: 'Озеро Балхаш', type: 'lake', region: 'Алматинская обл.', condition: 2, lat: 46.8, lng: 74.9 },
-        { id: 3, name: 'Бухтарминское водохранилище', type: 'reservoir', region: 'ВКО', condition: 3, lat: 49.0, lng: 83.5 }
-      ]);
-      setFacilities([
-        { id: 1, name: 'Бухтарминская ГЭС', type: 'hydropower', region: 'ВКО', condition: 3, capacity: 675, lat: 49.1, lng: 83.4 },
-        { id: 2, name: 'Капшагайская ГЭС', type: 'hydropower', region: 'Алматинская обл.', condition: 4, capacity: 364, lat: 43.9, lng: 77.1 }
-      ]);
+      setError('Не удалось загрузить данные с сервера.');
     } finally {
       setLoading(false);
     }
@@ -525,28 +502,8 @@ const GuestMapPage = () => {
   };
 
   const handleObjectClick = async (object, objectType) => {
-    try {
-      // Загружаем полные данные объекта
-      let fullData;
-      if (objectType === 'waterbody') {
-        fullData = await fetchAPI(`/waterbodies/${object.id}`);
-      } else {
-        fullData = await fetchAPI(`/facilities/${object.id}`);
-      }
-
-      setSelectedObject({
-        ...object,
-        ...fullData,
-        objectType,
-        lat: fullData.coordinates?.lat || object.lat,
-        lng: fullData.coordinates?.lng || object.lng,
-        condition: fullData.technicalCondition || object.condition
-      });
-    } catch (err) {
-      console.error('Ошибка загрузки деталей:', err);
-      // Показываем базовую информацию при ошибке
-      setSelectedObject({ ...object, objectType });
-    }
+    // Просто показываем базовую информацию (детали уже загружены)
+    setSelectedObject({ ...object, objectType });
   };
 
   // Статистика

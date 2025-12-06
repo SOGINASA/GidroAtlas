@@ -1,55 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
-import { 
-  Layers, 
-  Filter, 
-  MapPin, 
-  AlertTriangle, 
-  Droplets, 
+import {
+  Layers,
+  Filter,
+  MapPin,
+  AlertTriangle,
+  Droplets,
   Zap,
   Compass
 } from 'lucide-react';
-
-// Mock данные - расширенные и реалистичные
-const MOCK_WATER_BODIES = [
-  { id: 1, name: 'Озеро Балхаш', lat: 46.8, lng: 74.9, status: 'warning', condition: 3, region: 'Карагандинская обл.' },
-  { id: 2, name: 'Капшагайское вдхр', lat: 43.9, lng: 77.1, status: 'safe', condition: 2, region: 'Алматинская обл.' },
-  { id: 3, name: 'Бухтарминское вдхр', lat: 47.4, lng: 83.1, status: 'critical', condition: 5, region: 'ВКО' },
-  { id: 4, name: 'Шардаринское вдхр', lat: 41.2, lng: 68.3, status: 'safe', condition: 2, region: 'Туркестанская обл.' },
-  { id: 5, name: 'Жайсан (озеро)', lat: 47.5, lng: 84.8, status: 'warning', condition: 3, region: 'ВКО' },
-  { id: 6, name: 'Алаколь (озеро)', lat: 46.2, lng: 81.8, status: 'safe', condition: 1, region: 'Алматинская обл.' },
-  { id: 7, name: 'Тенгиз (озеро)', lat: 50.5, lng: 69.0, status: 'warning', condition: 4, region: 'Карагандинская обл.' },
-  { id: 8, name: 'Сорбулак (вдхр)', lat: 43.4, lng: 77.3, status: 'safe', condition: 2, region: 'Алматинская обл.' }
-];
-
-const MOCK_FACILITIES = [
-  { id: 1, name: 'Бухтарминская ГЭС', lat: 47.4, lng: 83.1, condition: 3, region: 'ВКО', type: 'ГЭС' },
-  { id: 2, name: 'Капшагайская ГЭС', lat: 43.9, lng: 77.1, condition: 2, region: 'Алматинская обл.', type: 'ГЭС' },
-  { id: 3, name: 'Шардаринская ГЭС', lat: 41.2, lng: 68.3, condition: 4, region: 'Туркестанская обл.', type: 'ГЭС' },
-  { id: 4, name: 'Усть-Каменогорская ГЭС', lat: 49.9, lng: 82.6, condition: 2, region: 'ВКО', type: 'ГЭС' },
-  { id: 5, name: 'Плотина Коктерек', lat: 43.2, lng: 76.8, condition: 5, region: 'Алматинская обл.', type: 'Плотина' },
-  { id: 6, name: 'Плотина Сорбулак', lat: 43.4, lng: 77.3, condition: 1, region: 'Алматинская обл.', type: 'Плотина' }
-];
-
-const MOCK_CRITICAL_ZONES = [
-  { id: 1, name: 'Иртыш (Павлодар)', lat: 52.3, lng: 76.9, level: 'critical', description: 'Высокий уровень воды' },
-  { id: 2, name: 'Урал (Уральск)', lat: 51.2, lng: 51.4, level: 'warning', description: 'Повышенный уровень' },
-  { id: 3, name: 'Сырдарья (Кызылорда)', lat: 44.8, lng: 65.5, level: 'critical', description: 'Критический уровень' }
-];
+import { getAllMapData } from '../../services/mapApi';
 
 // Leaflet Map Component
-const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
+const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick, waterBodies, facilities, criticalZones }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading
     const timer = setTimeout(() => {
       setLoading(false);
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -70,7 +44,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
     if (mapInstanceRef.current && !loading) {
       updateMarkers();
     }
-  }, [activeLayer, loading, selectedRegion]);
+  }, [activeLayer, loading, selectedRegion, waterBodies, facilities, criticalZones]);
 
   const initializeMap = () => {
     const L = window.L;
@@ -142,7 +116,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
 
     // Критические зоны
     if (activeLayer.critical) {
-      const zones = filterByRegion(MOCK_CRITICAL_ZONES);
+      const zones = filterByRegion(criticalZones || []);
       zones.forEach(zone => {
         const color = zone.level === 'critical' ? '#EF4444' : '#F59E0B';
         
@@ -179,7 +153,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
                 ${zone.level === 'critical' ? '⚠️ КРИТИЧЕСКИЙ УРОВЕНЬ' : '⚡ ПРЕДУПРЕЖДЕНИЕ'}
               </p>
             </div>
-            <button onclick="alert('Открываем детали зоны...')" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold transition-colors">
+            <button onclick="window.navigateToCriticalZone(${zone.id})" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -196,8 +170,8 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
 
     // Водоёмы
     if (activeLayer.waterbodies) {
-      const waterBodies = filterByRegion(MOCK_WATER_BODIES);
-      waterBodies.forEach(wb => {
+      const filteredWaterBodies = filterByRegion(waterBodies || []);
+      filteredWaterBodies.forEach(wb => {
         const colors = {
           critical: '#EF4444',
           warning: '#F59E0B',
@@ -241,7 +215,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
                 </span>
               </div>
             </div>
-            <button onclick="alert('Открываем детали водоёма...')" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
+            <button onclick="window.navigateToWaterBody(${wb.id})" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -258,8 +232,8 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
 
     // ГТС (Гидротехнические сооружения)
     if (activeLayer.facilities) {
-      const facilities = filterByRegion(MOCK_FACILITIES);
-      facilities.forEach(facility => {
+      const filteredFacilities = filterByRegion(facilities || []);
+      filteredFacilities.forEach(facility => {
         const conditionColors = {
           1: '#10B981',
           2: '#84CC16',
@@ -303,7 +277,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
                 </span>
               </div>
             </div>
-            <button onclick="alert('Открываем детали ГТС...')" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
+            <button onclick="window.navigateToFacility(${facility.id})" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -334,6 +308,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
 };
 
 const EmergencyMap = () => {
+  const navigate = useNavigate();
   const [activeLayer, setActiveLayer] = useState({
     waterbodies: true,
     facilities: true,
@@ -342,12 +317,75 @@ const EmergencyMap = () => {
   });
 
   const [selectedRegion, setSelectedRegion] = useState('all');
+  const [waterBodies, setWaterBodies] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [criticalZones, setCriticalZones] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Считаем статистику из mock данных
+  // Глобальные функции для навигации из popup
+  useEffect(() => {
+    window.navigateToWaterBody = (id) => {
+      navigate(`/admin/waterbody/${id}`);
+    };
+    window.navigateToFacility = (id) => {
+      navigate(`/admin/facility/${id}`);
+    };
+    window.navigateToCriticalZone = (id) => {
+      navigate(`/admin/critical-zone/${id}`);
+    };
+    return () => {
+      delete window.navigateToWaterBody;
+      delete window.navigateToFacility;
+      delete window.navigateToCriticalZone;
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    loadMapData();
+  }, [selectedRegion]);
+
+  const loadMapData = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllMapData({ region: selectedRegion });
+
+      // Фильтруем объекты с валидными координатами
+      const waterBodies = (data.waterBodies || []).filter(wb => {
+        const lat = wb.coordinates?.lat || wb.lat || wb.latitude;
+        const lng = wb.coordinates?.lng || wb.lng || wb.longitude;
+        return lat && lng;
+      }).map(wb => ({
+        ...wb,
+        lat: wb.coordinates?.lat || wb.lat || wb.latitude,
+        lng: wb.coordinates?.lng || wb.lng || wb.longitude,
+        condition: wb.condition || wb.technicalCondition || 3
+      }));
+
+      const facilities = (data.facilities || []).filter(fac => {
+        const lat = fac.coordinates?.lat || fac.lat || fac.latitude;
+        const lng = fac.coordinates?.lng || fac.lng || fac.longitude;
+        return lat && lng;
+      }).map(fac => ({
+        ...fac,
+        lat: fac.coordinates?.lat || fac.lat || fac.latitude,
+        lng: fac.coordinates?.lng || fac.lng || fac.longitude,
+        condition: fac.condition || fac.technicalCondition || 3
+      }));
+
+      setWaterBodies(waterBodies);
+      setFacilities(facilities);
+      setCriticalZones(data.criticalZones || []);
+    } catch (error) {
+      console.error('Ошибка загрузки данных карты:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const stats = {
-    waterbodies: MOCK_WATER_BODIES.length,
-    facilities: MOCK_FACILITIES.length,
-    critical: MOCK_WATER_BODIES.filter(wb => wb.status === 'critical').length + MOCK_CRITICAL_ZONES.length,
+    waterbodies: waterBodies.length,
+    facilities: facilities.length,
+    critical: waterBodies.filter(wb => wb.condition >= 4).length + criticalZones.length,
     sensors: 234
   };
 
@@ -357,7 +395,6 @@ const EmergencyMap = () => {
 
   const handleMarkerClick = (markerData) => {
     console.log('Marker clicked:', markerData);
-    // Здесь можно открыть модальное окно с деталями
   };
 
   return (
@@ -397,7 +434,7 @@ const EmergencyMap = () => {
                       className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />
                     <Droplets className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium">Водоёмы ({MOCK_WATER_BODIES.length})</span>
+                    <span className="text-sm font-medium">Водоёмы ({waterBodies.length})</span>
                   </label>
 
                   <label className="flex items-center space-x-3 cursor-pointer group">
@@ -408,7 +445,7 @@ const EmergencyMap = () => {
                       className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
                     />
                     <Zap className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium">ГТС ({MOCK_FACILITIES.length})</span>
+                    <span className="text-sm font-medium">ГТС ({facilities.length})</span>
                   </label>
 
                   <label className="flex items-center space-x-3 cursor-pointer group">
@@ -419,7 +456,7 @@ const EmergencyMap = () => {
                       className="w-5 h-5 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
                     />
                     <AlertTriangle className="w-5 h-5 text-red-500 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium">Критические зоны ({MOCK_CRITICAL_ZONES.length})</span>
+                    <span className="text-sm font-medium">Критические зоны ({criticalZones.length})</span>
                   </label>
 
                   <label className="flex items-center space-x-3 cursor-pointer group">
@@ -512,10 +549,13 @@ const EmergencyMap = () => {
             {/* Right Side - Map */}
             <div className="lg:col-span-3">
               <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
-                <LeafletMap 
+                <LeafletMap
                   activeLayer={activeLayer}
                   selectedRegion={selectedRegion}
                   onMarkerClick={handleMarkerClick}
+                  waterBodies={waterBodies}
+                  facilities={facilities}
+                  criticalZones={criticalZones}
                 />
               </div>
             </div>

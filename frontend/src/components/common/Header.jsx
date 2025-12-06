@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Droplets, Menu, X, LogIn } from 'lucide-react';
+import { Droplets, Menu, X, LogIn, Home } from 'lucide-react';
+import { useAuthStatus } from '../api/AuthUtils';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuthStatus({ withUser: true });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -76,16 +78,35 @@ const Header = () => {
               ))}
             </nav>
 
-            {/* Right Section: Login Button */}
+            {/* Right Section: Login / Dashboard Button */}
             <div className="flex items-center space-x-3">
-              {/* Login Button */}
-              <Link
-                to="/login?role=expert"
-                className="flex items-center space-x-2 px-5 py-2.5 bg-white text-[#0a4275] rounded-lg font-semibold hover:bg-cyan-50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Войти</span>
-              </Link>
+              {/* If authenticated, show dashboard button; otherwise show login */}
+              {isAuthenticated ? (
+                <button
+                  onClick={() => {
+                    // Map user role to dashboard route
+                    const role = user?.role || user?.user_type || '';
+                    let route = '/';
+                    if (role === 'expert') route = '/expert/dashboard';
+                    else if (role === 'emergency' || role === 'mchs') route = '/emergency/control-center';
+                    else if (role === 'admin') route = '/admin/overview';
+                    else route = '/';
+                    navigate(route);
+                  }}
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-white text-[#0a4275] rounded-lg font-semibold hover:bg-cyan-50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform"
+                >
+                  <Home className="w-4 h-4" />
+                  <span className="hidden sm:inline">Перейти в дашборд</span>
+                </button>
+              ) : (
+                <Link
+                  to="/login?role=expert"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-white text-[#0a4275] rounded-lg font-semibold hover:bg-cyan-50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span className="hidden sm:inline">Войти</span>
+                </Link>
+              )}
 
               {/* Mobile Menu Button */}
               <button

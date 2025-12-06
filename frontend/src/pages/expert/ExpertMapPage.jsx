@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
   Droplets,
@@ -13,13 +14,15 @@ import {
   Filter,
   Search,
   Layers,
+  ExternalLink,
 } from 'lucide-react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
+import { getAllMapData } from '../../services/mapApi';
 
-/* ===================== ДАННЫЕ ИЗ ТВОЕГО SWIFT-КОДА ===================== */
+/* ===================== ДАННЫЕ (будут загружены из API) ===================== */
 
-// Водоёмы (WATER_OBJECTS_KZ из Swift)
-const WATER_OBJECTS_KZ = [
+// Fallback данные (используются при ошибке загрузки)
+const FALLBACK_WATER_OBJECTS = [
   {
     id: 'balhash',
     name: 'Озеро Балхаш',
@@ -432,7 +435,12 @@ const LeafletMap = ({
 /* ===================== Страница эксперта ===================== */
 
 const ExpertMapPage = () => {
+  const navigate = useNavigate();
   const [selectedObject, setSelectedObject] = useState(null);
+  const [waterObjects, setWaterObjects] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [criticalZones, setCriticalZones] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCondition, setFilterCondition] = useState('all');
@@ -443,6 +451,48 @@ const ExpertMapPage = () => {
     facilities: true,
     criticalZones: true,
   });
+
+  useEffect(() => {
+    loadMapData();
+  }, []);
+
+  const loadMapData = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllMapData();
+
+      // Фильтруем объекты с валидными координатами
+      const waterBodies = (data.waterBodies || []).filter(wb => {
+        const lat = wb.coordinates?.lat || wb.lat || wb.latitude;
+        const lng = wb.coordinates?.lng || wb.lng || wb.longitude;
+        return lat && lng;
+      }).map(wb => ({
+        ...wb,
+        lat: wb.coordinates?.lat || wb.lat || wb.latitude,
+        lng: wb.coordinates?.lng || wb.lng || wb.longitude,
+        condition: wb.condition || wb.technicalCondition || 3
+      }));
+
+      const facilities = (data.facilities || []).filter(fac => {
+        const lat = fac.coordinates?.lat || fac.lat || fac.latitude;
+        const lng = fac.coordinates?.lng || fac.lng || fac.longitude;
+        return lat && lng;
+      }).map(fac => ({
+        ...fac,
+        lat: fac.coordinates?.lat || fac.lat || fac.latitude,
+        lng: fac.coordinates?.lng || fac.lng || fac.longitude,
+        condition: fac.condition || fac.technicalCondition || 3
+      }));
+
+      setWaterObjects(waterBodies);
+      setFacilities(facilities);
+      setCriticalZones(data.criticalZones || []);
+    } catch (error) {
+      console.error('Ошибка загрузки данных карты:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getConditionColor = (condition) => {
     const colors = {
@@ -499,10 +549,6 @@ const ExpertMapPage = () => {
   };
 
   // Фильтры
-  const waterObjects = WATER_OBJECTS_KZ;
-  const facilities = HYDRO_FACILITIES_KZ;
-  const criticalZones = CRITICAL_ZONES_KZ;
-
   const filteredWaterObjects = waterObjects.filter((w) => {
     const matchesSearch = w.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCondition =
@@ -1082,12 +1128,15 @@ const ExpertMapPage = () => {
                 >
                   Закрыть
                 </button>
-                <button
-                  className="flex-1 bg-sky-600 text-white py-3 rounded-xl hover:bg-sky-700 transition-colors font-semibold flex items-center justify-center space-x-2"
-                >
-                  <FileText className="w-5 h-5" />
-                  <span>Подробнее</span>
-                </button>
+                {selectedObject.objectType === 'water' && selectedObject.id && (
+                  <button
+                    onClick={() => navigate(`/admin/waterbody/${selectedObject.id}`)}
+                    className="flex-1 bg-sky-600 text-white py-3 rounded-xl hover:bg-sky-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    <span>Подробнее</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
