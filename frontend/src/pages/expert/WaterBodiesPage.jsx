@@ -1,65 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { Droplets, Search, Filter, MapPin, Calendar, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getWaterBodies, getWaterBodiesStats } from '../../services/waterBodyService';
 
 const ExpertWaterBodiesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRegion, setFilterRegion] = useState('all');
+  const [waterBodies, setWaterBodies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, critical: 0, warning: 0, safe: 0 });
 
-  // Mock data
-  const waterBodies = [
-    {
-      id: 1,
-      name: 'Река Иртыш',
-      region: 'Восточно-Казахстанская область',
-      type: 'river',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 4,
-      passportDate: '2018-06-15',
-      coordinates: { lat: 49.9479, lng: 82.6281 },
-      priority: { level: 'high', score: 15 }
-    },
-    {
-      id: 2,
-      name: 'Бухтарминское водохранилище',
-      region: 'Восточно-Казахстанская область',
-      type: 'reservoir',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 3,
-      passportDate: '2019-03-22',
-      coordinates: { lat: 49.0833, lng: 83.5 },
-      priority: { level: 'high', score: 18 }
-    },
-    {
-      id: 3,
-      name: 'Озеро Балхаш',
-      region: 'Алматинская область',
-      type: 'lake',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 2,
-      passportDate: '2021-09-10',
-      coordinates: { lat: 46.8333, lng: 74.9833 },
-      priority: { level: 'medium', score: 8 }
-    },
-    {
-      id: 4,
-      name: 'Капшагайское водохранилище',
-      region: 'Алматинская область',
-      type: 'reservoir',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 2,
-      passportDate: '2020-11-05',
-      coordinates: { lat: 43.8833, lng: 77.0833 },
-      priority: { level: 'low', score: 5 }
+  useEffect(() => {
+    loadWaterBodies();
+  }, []);
+
+  const loadWaterBodies = async () => {
+    try {
+      setLoading(true);
+
+      // Загружаем водоёмы и статистику
+      const [bodies, statsData] = await Promise.all([
+        getWaterBodies(),
+        getWaterBodiesStats()
+      ]);
+
+      // Обогащаем данные приоритетами и дополнительной информацией
+      const enrichedBodies = bodies.map(wb => {
+        // Расчёт приоритета
+        const condition = wb.riskLevel === 'critical' ? 5 : wb.riskLevel === 'danger' ? 4 : 2;
+        const passportAge = wb.passportDate
+          ? new Date().getFullYear() - new Date(wb.passportDate).getFullYear()
+          : 3;
+        const priorityScore = (6 - condition) * 3 + passportAge;
+        const priorityLevel = priorityScore >= 12 ? 'high' : priorityScore >= 6 ? 'medium' : 'low';
+
+        return {
+          ...wb,
+          technicalCondition: condition,
+          passportDate: wb.passportDate || new Date(Date.now() - passportAge * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          priority: { level: priorityLevel, score: priorityScore },
+          type: 'river',
+          waterType: 'fresh',
+          fauna: true
+        };
+      });
+
+      setWaterBodies(enrichedBodies);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading water bodies:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const regions = ['all', ...new Set(waterBodies.map(w => w.region))];
+  const regions = ['all', ...new Set(waterBodies.map(w => w.region).filter(Boolean))];
 
   const filteredWaterBodies = waterBodies.filter(wb => {
     const matchesSearch = wb.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -115,8 +111,17 @@ const ExpertWaterBodiesPage = () => {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-          
+
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка водоёмов...</p>
+            </div>
+          )}
+
           {/* Filters */}
+          {!loading && (
           <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Search */}
@@ -153,8 +158,10 @@ const ExpertWaterBodiesPage = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Stats */}
+          {!loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
               <p className="text-sm text-gray-600 mb-1">Всего</p>
@@ -179,14 +186,18 @@ const ExpertWaterBodiesPage = () => {
               </p>
             </div>
           </div>
+          )}
 
           {/* Water Bodies List */}
-          <div className="space-y-4">
-            {filteredWaterBodies.map((wb) => (
-              <div
-                key={wb.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all"
-              >
+          {!loading && (
+            <>
+              {filteredWaterBodies.length > 0 ? (
+                <div className="space-y-4">
+                  {filteredWaterBodies.map((wb) => (
+                    <div
+                      key={wb.id}
+                      className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all"
+                    >
                 <div className="p-4 lg:p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -250,17 +261,19 @@ const ExpertWaterBodiesPage = () => {
               </div>
             ))}
           </div>
-
-          {filteredWaterBodies.length === 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
-              <Droplets className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Ничего не найдено
-              </h3>
-              <p className="text-gray-600">
-                Попробуйте изменить параметры поиска
-              </p>
-            </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
+                  <Droplets className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Ничего не найдено
+                  </h3>
+                  <p className="text-gray-600">
+                    Попробуйте изменить параметры поиска
+                  </p>
+                </div>
+              )}
+            </>
+          )}
           )}
         </div>
       </div>

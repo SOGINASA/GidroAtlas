@@ -5,7 +5,7 @@ import { Droplets, User, GraduationCap, Siren, Settings, Lock, Mail, Eye, EyeOff
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { register } = useAuth();
   
   const [formData, setFormData] = useState({
     firstName: '',

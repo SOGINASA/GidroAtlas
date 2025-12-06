@@ -1,9 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { BarChart3, TrendingUp, PieChart, Activity } from 'lucide-react';
+import { getAllAnalytics } from '../../services/analyticsService';
 
 const ExpertAnalyticsPage = () => {
   const [timeRange, setTimeRange] = useState('month');
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadAnalytics = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllAnalytics(timeRange);
+      setAnalytics(data);
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [timeRange]);
 
   return (
     <ExpertLayout>
@@ -24,7 +43,16 @@ const ExpertAnalyticsPage = () => {
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
           
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка аналитики...</p>
+            </div>
+          )}
+
           {/* Time Range Selector */}
+          {!loading && (
           <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Период анализа</h3>
@@ -72,8 +100,10 @@ const ExpertAnalyticsPage = () => {
               </button>
             </div>
           </div>
+          )}
 
           {/* Key Metrics */}
+          {!loading && analytics && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-4">
@@ -81,11 +111,11 @@ const ExpertAnalyticsPage = () => {
                   <Activity className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                  +12%
+                  +{analytics.overallStats.totalWaterBodies}
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-1">Общий мониторинг</p>
-              <p className="text-3xl font-bold text-gray-900">156</p>
+              <p className="text-3xl font-bold text-gray-900">{analytics.overallStats.totalObjects}</p>
               <p className="text-xs text-gray-500 mt-1">водных объектов</p>
             </div>
 
@@ -95,11 +125,11 @@ const ExpertAnalyticsPage = () => {
                   <TrendingUp className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                  +5
+                  +{analytics.overallStats.criticalCount}
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-1">Критических</p>
-              <p className="text-3xl font-bold text-red-600">12</p>
+              <p className="text-3xl font-bold text-red-600">{analytics.overallStats.criticalCount}</p>
               <p className="text-xs text-gray-500 mt-1">требуют внимания</p>
             </div>
 
@@ -109,11 +139,11 @@ const ExpertAnalyticsPage = () => {
                   <BarChart3 className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                  94%
+                  {analytics.overallStats.averageConfidence}%
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-1">AI Уверенность</p>
-              <p className="text-3xl font-bold text-purple-600">87%</p>
+              <p className="text-3xl font-bold text-purple-600">{analytics.overallStats.averageConfidence}%</p>
               <p className="text-xs text-gray-500 mt-1">средняя точность</p>
             </div>
 
@@ -123,16 +153,18 @@ const ExpertAnalyticsPage = () => {
                   <PieChart className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                  +8
+                  +{analytics.overallStats.safeCount}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mb-1">Обследований</p>
-              <p className="text-3xl font-bold text-green-600">24</p>
-              <p className="text-xs text-gray-500 mt-1">за текущий период</p>
+              <p className="text-sm text-gray-600 mb-1">В норме</p>
+              <p className="text-3xl font-bold text-green-600">{analytics.overallStats.safeCount}</p>
+              <p className="text-xs text-gray-500 mt-1">датчиков безопасно</p>
             </div>
           </div>
+          )}
 
           {/* Charts Row 1 */}
+          {!loading && analytics && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Priority Distribution */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -143,30 +175,30 @@ const ExpertAnalyticsPage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Высокий приоритет</span>
-                    <span className="text-sm font-bold text-red-600">18 объектов</span>
+                    <span className="text-sm font-bold text-red-600">{analytics.priorityDistribution.high} объектов</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div className="bg-red-500 h-3 rounded-full" style={{ width: '35%' }}></div>
+                    <div className="bg-red-500 h-3 rounded-full" style={{ width: `${analytics.priorityDistribution.total > 0 ? (analytics.priorityDistribution.high / analytics.priorityDistribution.total * 100) : 0}%` }}></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Средний приоритет</span>
-                    <span className="text-sm font-bold text-orange-600">24 объекта</span>
+                    <span className="text-sm font-bold text-orange-600">{analytics.priorityDistribution.medium} объекта</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div className="bg-orange-500 h-3 rounded-full" style={{ width: '47%' }}></div>
+                    <div className="bg-orange-500 h-3 rounded-full" style={{ width: `${analytics.priorityDistribution.total > 0 ? (analytics.priorityDistribution.medium / analytics.priorityDistribution.total * 100) : 0}%` }}></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Низкий приоритет</span>
-                    <span className="text-sm font-bold text-green-600">9 объектов</span>
+                    <span className="text-sm font-bold text-green-600">{analytics.priorityDistribution.low} объектов</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div className="bg-green-500 h-3 rounded-full" style={{ width: '18%' }}></div>
+                    <div className="bg-green-500 h-3 rounded-full" style={{ width: `${analytics.priorityDistribution.total > 0 ? (analytics.priorityDistribution.low / analytics.priorityDistribution.total * 100) : 0}%` }}></div>
                   </div>
                 </div>
               </div>
@@ -179,13 +211,10 @@ const ExpertAnalyticsPage = () => {
               </h3>
               <div className="space-y-4">
                 {[1, 2, 3, 4, 5].map(category => {
-                  const counts = {
-                    1: 8,
-                    2: 15,
-                    3: 12,
-                    4: 9,
-                    5: 7
-                  };
+                  const count = analytics.technicalCondition[category];
+                  const total = Object.values(analytics.technicalCondition).reduce((a, b) => a + b, 0);
+                  const percentage = total > 0 ? (count / total * 100) : 0;
+
                   const colors = {
                     1: 'bg-green-500',
                     2: 'bg-lime-500',
@@ -193,22 +222,15 @@ const ExpertAnalyticsPage = () => {
                     4: 'bg-orange-500',
                     5: 'bg-red-500'
                   };
-                  const widths = {
-                    1: '16%',
-                    2: '30%',
-                    3: '24%',
-                    4: '18%',
-                    5: '12%'
-                  };
 
                   return (
                     <div key={category}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-700">Категория {category}</span>
-                        <span className="text-sm font-bold text-gray-900">{counts[category]} объектов</span>
+                        <span className="text-sm font-bold text-gray-900">{count} объектов</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div className={`${colors[category]} h-3 rounded-full`} style={{ width: widths[category] }}></div>
+                        <div className={`${colors[category]} h-3 rounded-full`} style={{ width: `${percentage}%` }}></div>
                       </div>
                     </div>
                   );
@@ -216,21 +238,16 @@ const ExpertAnalyticsPage = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Regional Distribution */}
+          {!loading && analytics && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Распределение по регионам
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { region: 'Восточно-Казахстанская область', count: 42, percentage: 27 },
-                { region: 'Алматинская область', count: 38, percentage: 24 },
-                { region: 'Павлодарская область', count: 28, percentage: 18 },
-                { region: 'Карагандинская область', count: 24, percentage: 15 },
-                { region: 'Северо-Казахстанская область', count: 16, percentage: 10 },
-                { region: 'Другие регионы', count: 8, percentage: 6 }
-              ].map((item, index) => (
+              {analytics.regionalDistribution.slice(0, 6).map((item, index) => (
                 <div key={index} className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm font-medium text-gray-700 mb-2">{item.region}</p>
                   <div className="flex items-end justify-between">
@@ -244,8 +261,10 @@ const ExpertAnalyticsPage = () => {
               ))}
             </div>
           </div>
+          )}
 
           {/* Trends */}
+          {!loading && analytics && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Тренды и изменения
@@ -256,7 +275,7 @@ const ExpertAnalyticsPage = () => {
                   <span className="text-sm font-medium text-green-900">Улучшения</span>
                   <TrendingUp className="w-5 h-5 text-green-600" />
                 </div>
-                <p className="text-3xl font-bold text-green-700 mb-1">+8</p>
+                <p className="text-3xl font-bold text-green-700 mb-1">+{analytics.trends.improved}</p>
                 <p className="text-xs text-green-600">объектов улучшили состояние</p>
               </div>
 
@@ -265,7 +284,7 @@ const ExpertAnalyticsPage = () => {
                   <span className="text-sm font-medium text-yellow-900">Стабильно</span>
                   <Activity className="w-5 h-5 text-yellow-600" />
                 </div>
-                <p className="text-3xl font-bold text-yellow-700 mb-1">142</p>
+                <p className="text-3xl font-bold text-yellow-700 mb-1">{analytics.trends.stable}</p>
                 <p className="text-xs text-yellow-600">без изменений</p>
               </div>
 
@@ -274,11 +293,12 @@ const ExpertAnalyticsPage = () => {
                   <span className="text-sm font-medium text-red-900">Ухудшения</span>
                   <TrendingUp className="w-5 h-5 text-red-600 rotate-180" />
                 </div>
-                <p className="text-3xl font-bold text-red-700 mb-1">6</p>
+                <p className="text-3xl font-bold text-red-700 mb-1">{analytics.trends.worsened}</p>
                 <p className="text-xs text-red-600">требуют внимания</p>
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </ExpertLayout>
