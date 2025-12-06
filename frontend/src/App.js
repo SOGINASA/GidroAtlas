@@ -43,8 +43,20 @@ import EmergencyPredictions from './pages/emergency/PredictionsPage';
 import EmergencyNotifications from './pages/emergency/NotificationsManagement';
 import EmergencyProfile from './pages/emergency/ProfilePage';
 
-// Admin pages (В разработке)
-// import AdminDashboard from './pages/admin/AdminDashboard';
+// Admin pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUsersManagement from './pages/admin/UsersManagement';
+import AdminWaterBodiesManagement from './pages/admin/WaterBodiesManagement';
+import AdminFacilitiesManagement from './pages/admin/FacilitiesManagement';
+import AdminMap from './pages/admin/AdminMap';
+import AdminAISettings from './pages/admin/AISettings';
+import AdminSensorsManagement from './pages/admin/SensorsManagement';
+import AdminPrioritizationPage from './pages/admin/PrioritizationPage';
+import AdminNotificationsSettings from './pages/admin/NotificationsSettings';
+import AdminLogsPage from './pages/admin/LogsPage';
+import AdminSystemAnalytics from './pages/admin/SystemAnalytics';
+import AdminSettingsPage from './pages/admin/SettingsPage';
+import AdminProfilePage from './pages/admin/ProfilePage';
 
 function App() {
   return (
@@ -93,8 +105,19 @@ function App() {
 
           {/* Защищённые маршруты для админов */}
           <Route element={<RequireAuth allowedRoles={['admin']} />}>
-            <Route path="/admin/overview" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Admin Overview - В разработке</h1></div>} />
-            <Route path="/admin/users" element={<div className="min-h-screen bg-gray-100 flex items-center justify-center"><h1 className="text-3xl">Users Management - В разработке</h1></div>} />
+            <Route path="/admin/overview" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<AdminUsersManagement />} />
+            <Route path="/admin/waterbodies" element={<AdminWaterBodiesManagement />} />
+            <Route path="/admin/facilities" element={<AdminFacilitiesManagement />} />
+            <Route path="/admin/map" element={<AdminMap />} />
+            <Route path="/admin/ai-settings" element={<AdminAISettings />} />
+            <Route path="/admin/sensors" element={<AdminSensorsManagement />} />
+            <Route path="/admin/prioritization" element={<AdminPrioritizationPage />} />
+            <Route path="/admin/notifications" element={<AdminNotificationsSettings />} />
+            <Route path="/admin/logs" element={<AdminLogsPage />} />
+            <Route path="/admin/system-analytics" element={<AdminSystemAnalytics />} />
+            <Route path="/admin/settings" element={<AdminSettingsPage />} />
+            <Route path="/admin/profile" element={<AdminProfilePage />} />
           </Route>
 
           {/* 404 */}
