@@ -2,7 +2,7 @@
 /backend/database
 /backend/routes/__pycache__
 
-/node_modules
+/frontend/node_modules
 /.pnp
 .pnp.js
 
