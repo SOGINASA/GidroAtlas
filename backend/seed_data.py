@@ -34,6 +34,15 @@ def seed_users():
             'phone': '+79993456789',
             'address': 'ул. Толстого, 5, Казань',
         },
+        # Эксперты (expert)
+        {
+            'email': 'expert@example.com',
+            'password': 'expert123',
+            'full_name': 'Дмитрий Эксперт',
+            'user_type': 'expert',
+            'phone': '+79996543210',
+            'address': 'ул. Научная, 25, Москва',
+        },
         # Администраторы (admin)
         {
             'email': 'admin@example.com',
@@ -43,12 +52,12 @@ def seed_users():
             'phone': '+79994567890',
             'address': 'ул. Советская, 1, Москва',
         },
-        # MCHS (экстренные службы)
+        # МЧС (emergency - экстренные службы)
         {
-            'email': 'mchs@example.com',
-            'password': 'mchs123',
+            'email': 'emergency@example.com',
+            'password': 'emergency123',
             'full_name': 'Антон МЧС',
-            'user_type': 'mchs',
+            'user_type': 'emergency',
             'phone': '+79995678901',
             'address': 'ул. Спасателей, 15, Москва',
         },
@@ -904,8 +913,8 @@ def seed_reports():
         return
 
     # Получаем пользователя МЧС для авторства
-    mchs_user = User.query.filter_by(user_type='mchs').first()
-    if not mchs_user:
+    emergency_user = User.query.filter_by(user_type='emergency').first()
+    if not emergency_user:
         print("Сначала создайте пользователя МЧС")
         return
 
@@ -916,8 +925,8 @@ def seed_reports():
             'period_start': date(2024, 11, 27),
             'period_end': date(2024, 12, 3),
             'type': 'weekly',
-            'author_id': mchs_user.id,
-            'author_name': mchs_user.full_name,
+            'author_id': emergency_user.id,
+            'author_name': emergency_user.full_name,
             'status': 'completed',
             'stats': {'incidents': 45, 'critical': 8, 'evacuations': 3},
             'content': 'Сводка за неделю. Зафиксировано повышение уровня воды в нескольких зонах мониторинга.',
@@ -930,7 +939,7 @@ def seed_reports():
             'period_start': date(2024, 12, 1),
             'period_end': date(2024, 12, 1),
             'type': 'incident',
-            'author_id': mchs_user.id,
+            'author_id': emergency_user.id,
             'author_name': 'Петров П.П.',
             'status': 'completed',
             'stats': {'incidents': 1, 'critical': 1, 'evacuations': 1},
@@ -944,7 +953,7 @@ def seed_reports():
             'period_start': date(2024, 11, 1),
             'period_end': date(2024, 11, 30),
             'type': 'monthly',
-            'author_id': mchs_user.id,
+            'author_id': emergency_user.id,
             'author_name': 'Сидоров С.С.',
             'status': 'completed',
             'stats': {'incidents': 182, 'critical': 34, 'evacuations': 15},
@@ -958,7 +967,7 @@ def seed_reports():
             'period_start': date(2024, 11, 25),
             'period_end': date(2024, 11, 25),
             'type': 'evacuation',
-            'author_id': mchs_user.id,
+            'author_id': emergency_user.id,
             'author_name': 'Козлов К.К.',
             'status': 'draft',
             'stats': {'incidents': 1, 'critical': 0, 'evacuations': 1},
@@ -972,8 +981,8 @@ def seed_reports():
             'period_start': date(2024, 11, 20),
             'period_end': date(2024, 11, 26),
             'type': 'weekly',
-            'author_id': mchs_user.id,
-            'author_name': mchs_user.full_name,
+            'author_id': emergency_user.id,
+            'author_name': emergency_user.full_name,
             'status': 'completed',
             'stats': {'incidents': 38, 'critical': 5, 'evacuations': 2},
             'content': 'Еженедельная сводка. Ситуация стабильная, уровни воды в пределах нормы.',
@@ -986,8 +995,8 @@ def seed_reports():
             'period_start': date(2024, 11, 15),
             'period_end': date(2024, 11, 15),
             'type': 'incident',
-            'author_id': mchs_user.id,
-            'author_name': mchs_user.full_name,
+            'author_id': emergency_user.id,
+            'author_name': emergency_user.full_name,
             'status': 'completed',
             'stats': {'incidents': 1, 'critical': 1, 'evacuations': 0},
             'content': 'Обнаружены повреждения на Каратомарской плотине. Требуется срочный ремонт.',

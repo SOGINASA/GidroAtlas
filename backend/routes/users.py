@@ -7,10 +7,10 @@ users_bp = Blueprint('users', __name__)
 
 
 def require_admin():
-    """Декоратор-хелпер для проверки прав администратора"""
+    """Декоратор-хелпер для проверки прав администратора и МЧС"""
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
     return None
 
@@ -71,8 +71,8 @@ def get_user_by_id(user_id):
     current_user_id = claims.get('sub')
     user_type = claims.get('user_type', 'user')
 
-    # Обычный пользователь может видеть только свои данные
-    if user_type == 'user' and int(current_user_id) != user_id:
+    # Обычные пользователи и эксперты могут видеть только свои данные
+    if user_type in ['user', 'expert'] and int(current_user_id) != user_id:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -101,8 +101,8 @@ def update_user(user_id):
     current_user_id = claims.get('sub')
     user_type = claims.get('user_type', 'user')
 
-    # Обычный пользователь может редактировать только свои данные
-    if user_type == 'user' and int(current_user_id) != user_id:
+    # Обычные пользователи и эксперты могут редактировать только свои данные
+    if user_type in ['user', 'expert'] and int(current_user_id) != user_id:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -195,18 +195,20 @@ def get_user_stats():
 
     try:
         total = User.query.filter_by(is_active=True).count()
-        residents = User.query.filter_by(user_type='user', is_active=True).count()
+        users = User.query.filter_by(user_type='user', is_active=True).count()
+        experts = User.query.filter_by(user_type='expert', is_active=True).count()
+        emergency = User.query.filter_by(user_type='emergency', is_active=True).count()
         admins = User.query.filter_by(user_type='admin', is_active=True).count()
-        mchs = User.query.filter_by(user_type='mchs', is_active=True).count()
         verified = User.query.filter_by(is_verified=True, is_active=True).count()
 
         return jsonify({
             'success': True,
             'data': {
                 'total': total,
-                'residents': residents,
+                'users': users,
+                'experts': experts,
+                'emergency': emergency,
                 'admins': admins,
-                'mchs': mchs,
                 'verified': verified,
                 'unverified': total - verified
             }
@@ -231,7 +233,7 @@ def get_residents():
         # Параметры фильтрации
         search = request.args.get('search', '').strip()
 
-        # Только жители (user_type='user')
+        # Только обычные пользователи (user_type='user')
         query = User.query.filter_by(user_type='user', is_active=True)
 
         # Поиск по email или имени

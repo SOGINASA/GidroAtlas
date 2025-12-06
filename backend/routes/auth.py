@@ -38,10 +38,10 @@ def register():
         return jsonify({'error': f"Отсутствуют обязательные поля: {', '.join(missing)}"}), 400
 
     email = data['email'].strip().lower()
-    user_type = data.get('user_type', 'user').lower()  # Допустимые значения: user, admin, mchs
-    
+    user_type = data.get('user_type', 'user').lower()  # Допустимые значения: user, expert, emergency, admin
+
     # Валидация типа пользователя
-    allowed_types = ['user', 'admin', 'mchs']
+    allowed_types = ['user', 'expert', 'emergency', 'admin']
     if user_type not in allowed_types:
         return jsonify({'error': f'Неверный тип пользователя. Допустимые значения: {", ".join(allowed_types)}'}), 400
 
