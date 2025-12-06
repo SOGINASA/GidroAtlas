@@ -42,12 +42,14 @@ def create_app():
     from routes import (
         auth_bp,
         users_bp,
-        sensor_bp
+        sensor_bp,
+        evacuations_bp
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(sensor_bp, url_prefix='/api/sensors')
+    app.register_blueprint(evacuations_bp, url_prefix='/api/evacuations')
 
     # Главная страница API
     @app.route('/api')
