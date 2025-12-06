@@ -52,12 +52,6 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (mapInstanceRef.current) {
-      updateMarkers();
-    }
-  }, [activeLayer]);
-
   const initializeMap = () => {
     const L = window.L;
     
@@ -229,6 +223,12 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
       });
     }
   };
+
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      updateMarkers();
+    }
+  }, [activeLayer]);
 
   const zoomIn = () => {
     if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();

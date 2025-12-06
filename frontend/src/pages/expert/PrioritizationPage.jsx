@@ -1,94 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { ListOrdered, Filter, ArrowUpDown, Download } from 'lucide-react';
+import { getWaterBodies } from '../../services/waterBodyService';
+import { getHydroFacilities } from '../../services/hydroFacilityService';
 
 const ExpertPrioritizationPage = () => {
   const [filterPriority, setFilterPriority] = useState('all');
   const [sortBy, setSortBy] = useState('priority_desc');
+  const [allObjects, setAllObjects] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock combined data (water bodies + facilities)
-  const allObjects = [
-    {
-      id: 'wb1',
-      name: 'Бухтарминское водохранилище',
-      type: 'waterbody',
-      region: 'ВКО',
-      technicalCondition: 5,
-      passportDate: '2015-03-15',
-      passportAge: 9,
-      priority: { score: 18, level: 'high' }
-    },
-    {
-      id: 'f1',
-      name: 'Капшагайская ГЭС',
-      type: 'facility',
-      region: 'Алматинская область',
-      technicalCondition: 4,
-      passportDate: '2017-06-20',
-      passportAge: 7,
-      priority: { score: 15, level: 'high' }
-    },
-    {
-      id: 'f2',
-      name: 'Шульбинская ГЭС',
-      type: 'facility',
-      region: 'ВКО',
-      technicalCondition: 3,
-      passportDate: '2018-09-10',
-      passportAge: 6,
-      priority: { score: 12, level: 'high' }
-    },
-    {
-      id: 'wb2',
-      name: 'Река Иртыш',
-      type: 'waterbody',
-      region: 'ВКО',
-      technicalCondition: 3,
-      passportDate: '2019-01-22',
-      passportAge: 5,
-      priority: { score: 10, level: 'medium' }
-    },
-    {
-      id: 'wb3',
-      name: 'Озеро Балхаш',
-      type: 'waterbody',
-      region: 'Алматинская область',
-      technicalCondition: 2,
-      passportDate: '2020-05-15',
-      passportAge: 4,
-      priority: { score: 8, level: 'medium' }
-    },
-    {
-      id: 'f3',
-      name: 'Плотина Сорг',
-      type: 'facility',
-      region: 'Алматинская область',
-      technicalCondition: 2,
-      passportDate: '2021-11-08',
-      passportAge: 3,
-      priority: { score: 6, level: 'medium' }
-    },
-    {
-      id: 'wb4',
-      name: 'Капшагайское водохранилище',
-      type: 'waterbody',
-      region: 'Алматинская область',
-      technicalCondition: 2,
-      passportDate: '2021-03-20',
-      passportAge: 3,
-      priority: { score: 5, level: 'low' }
-    },
-    {
-      id: 'wb5',
-      name: 'Озеро Зайсан',
-      type: 'waterbody',
-      region: 'ВКО',
-      technicalCondition: 1,
-      passportDate: '2022-08-12',
-      passportAge: 2,
-      priority: { score: 3, level: 'low' }
+  const calculatePriority = (obj) => {
+    // Определяем техническое состояние
+    const condition = obj.technicalCondition || (obj.riskLevel === 'critical' ? 5 : obj.riskLevel === 'danger' ? 4 : 2);
+
+    // Вычисляем возраст паспорта
+    const passportAge = obj.passportDate
+      ? new Date().getFullYear() - new Date(obj.passportDate).getFullYear()
+      : 5;
+
+    // Формула: PriorityScore = (6 - Состояние) × 3 + Возраст_паспорта
+    const score = (6 - condition) * 3 + passportAge;
+
+    // Определяем уровень приоритета
+    const level = score >= 12 ? 'high' : score >= 6 ? 'medium' : 'low';
+
+    return { score, level, passportAge };
+  };
+
+  const loadAllObjects = async () => {
+    try {
+      setLoading(true);
+
+      // Загружаем водоёмы и ГТС
+      const [waterBodies, facilitiesResponse] = await Promise.all([
+        getWaterBodies(),
+        getHydroFacilities()
+      ]);
+
+      const facilities = facilitiesResponse.data || facilitiesResponse || [];
+
+      // Обрабатываем водоёмы
+      const processedWaterBodies = waterBodies.map(wb => {
+        const condition = wb.riskLevel === 'critical' ? 5 : wb.riskLevel === 'danger' ? 4 : 2;
+        const priority = calculatePriority({ ...wb, technicalCondition: condition });
+
+        return {
+          id: `wb_${wb.id}`,
+          name: wb.name,
+          type: 'waterbody',
+          region: wb.region || wb.location,
+          technicalCondition: condition,
+          passportDate: wb.passportDate || new Date(Date.now() - priority.passportAge * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          passportAge: priority.passportAge,
+          priority
+        };
+      });
+
+      // Обрабатываем ГТС
+      const processedFacilities = facilities.map(f => {
+        const condition = f.technicalCondition || 3;
+        const priority = calculatePriority({ ...f, technicalCondition: condition });
+
+        return {
+          id: `f_${f.id}`,
+          name: f.name,
+          type: 'facility',
+          region: f.region,
+          technicalCondition: condition,
+          passportDate: f.passportDate || new Date(Date.now() - priority.passportAge * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          passportAge: priority.passportAge,
+          priority
+        };
+      });
+
+      // Объединяем все объекты
+      const combined = [...processedWaterBodies, ...processedFacilities];
+      setAllObjects(combined);
+    } catch (error) {
+      console.error('Error loading objects:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadAllObjects();
+  }, []);
 
   const filterAndSort = () => {
     let filtered = allObjects;
@@ -144,8 +142,31 @@ const ExpertPrioritizationPage = () => {
   };
 
   const exportToCSV = () => {
-    // Mock export
-    alert('Экспорт в CSV (функция будет реализована)');
+    const sorted = filterAndSort();
+
+    // Формируем CSV
+    const headers = ['Объект', 'Тип', 'Регион', 'Состояние', 'Возраст паспорта', 'Оценка', 'Приоритет'];
+    const rows = sorted.map(obj => [
+      obj.name,
+      obj.type === 'waterbody' ? 'Водоём' : 'ГТС',
+      obj.region,
+      obj.technicalCondition,
+      `${obj.passportAge} лет`,
+      obj.priority.score,
+      obj.priority.level === 'high' ? 'Высокий' : obj.priority.level === 'medium' ? 'Средний' : 'Низкий'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Создаём blob и скачиваем
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `prioritization_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
   };
 
   return (
@@ -166,8 +187,17 @@ const ExpertPrioritizationPage = () => {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-          
+
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка данных...</p>
+            </div>
+          )}
+
           {/* Formula Info */}
+          {!loading && (
           <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
             <h3 className="text-lg font-bold text-gray-900 mb-3">Формула расчёта приоритета</h3>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -190,8 +220,10 @@ const ExpertPrioritizationPage = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Stats */}
+          {!loading && (
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
               <p className="text-sm text-gray-600 mb-1">Всего объектов</p>
@@ -216,8 +248,10 @@ const ExpertPrioritizationPage = () => {
               </p>
             </div>
           </div>
+          )}
 
           {/* Filters & Sort */}
+          {!loading && (
           <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -270,8 +304,10 @@ const ExpertPrioritizationPage = () => {
               </button>
             </div>
           </div>
+          )}
 
           {/* Priority Table */}
+          {!loading && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -338,8 +374,9 @@ const ExpertPrioritizationPage = () => {
               </table>
             </div>
           </div>
+          )}
 
-          {filteredObjects.length === 0 && (
+          {!loading && filteredObjects.length === 0 && (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
               <ListOrdered className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">

@@ -1,70 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { Zap, Search, Filter, MapPin, Calendar, FileText, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getHydroFacilities } from '../../services/hydroFacilityService';
 
 const ExpertFacilitiesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRegion, setFilterRegion] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [facilities, setFacilities] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data
-  const facilities = [
-    {
-      id: 1,
-      name: 'Бухтарминская ГЭС',
-      region: 'Восточно-Казахстанская область',
-      type: 'hydropower',
-      status: 'operational',
-      capacity: 675,
-      commissionedYear: 1966,
-      technicalCondition: 3,
-      passportDate: '2019-05-12',
-      coordinates: { lat: 49.0833, lng: 83.5 },
-      priority: { level: 'high', score: 15 }
-    },
-    {
-      id: 2,
-      name: 'Шульбинская ГЭС',
-      region: 'Восточно-Казахстанская область',
-      type: 'hydropower',
-      status: 'operational',
-      capacity: 702,
-      commissionedYear: 1987,
-      technicalCondition: 2,
-      passportDate: '2020-08-22',
-      coordinates: { lat: 50.1667, lng: 82.1833 },
-      priority: { level: 'medium', score: 9 }
-    },
-    {
-      id: 3,
-      name: 'Капшагайская ГЭС',
-      region: 'Алматинская область',
-      type: 'hydropower',
-      status: 'operational',
-      capacity: 364,
-      commissionedYear: 1970,
-      technicalCondition: 4,
-      passportDate: '2017-03-15',
-      coordinates: { lat: 43.8833, lng: 77.0833 },
-      priority: { level: 'high', score: 18 }
-    },
-    {
-      id: 4,
-      name: 'Плотина Сорг',
-      region: 'Алматинская область',
-      type: 'dam',
-      status: 'operational',
-      capacity: 0,
-      commissionedYear: 1978,
-      technicalCondition: 2,
-      passportDate: '2021-11-08',
-      coordinates: { lat: 43.1833, lng: 77.1833 },
-      priority: { level: 'low', score: 6 }
+  useEffect(() => {
+    loadFacilities();
+  }, []);
+
+  const loadFacilities = async () => {
+    try {
+      setLoading(true);
+      const response = await getHydroFacilities();
+      const facilitiesData = response.data || response || [];
+
+      // Обогащаем данные приоритетами
+      const enrichedFacilities = facilitiesData.map(f => {
+        // Определяем техническое состояние
+        const condition = f.technicalCondition || 3;
+
+        // Расчёт приоритета
+        const passportAge = f.passportDate
+          ? new Date().getFullYear() - new Date(f.passportDate).getFullYear()
+          : 5;
+        const priorityScore = (6 - condition) * 3 + passportAge;
+        const priorityLevel = priorityScore >= 12 ? 'high' : priorityScore >= 6 ? 'medium' : 'low';
+
+        return {
+          ...f,
+          technicalCondition: condition,
+          passportDate: f.passportDate || new Date(Date.now() - passportAge * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          priority: { level: priorityLevel, score: priorityScore },
+          status: f.status || 'operational',
+          capacity: f.technicalSpecs?.capacity || f.capacity || 0,
+          commissionedYear: f.commissionedYear || (f.passportDate ? new Date(f.passportDate).getFullYear() - 10 : 2000)
+        };
+      });
+
+      setFacilities(enrichedFacilities);
+    } catch (error) {
+      console.error('Error loading facilities:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const regions = ['all', ...new Set(facilities.map(f => f.region))];
+  const regions = ['all', ...new Set(facilities.map(f => f.region).filter(Boolean))];
   const types = [
     { value: 'all', label: 'Все типы' },
     { value: 'hydropower', label: 'ГЭС' },
@@ -148,8 +136,17 @@ const ExpertFacilitiesPage = () => {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-          
+
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка ГТС...</p>
+            </div>
+          )}
+
           {/* Filters */}
+          {!loading && (
           <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
@@ -202,8 +199,10 @@ const ExpertFacilitiesPage = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Stats */}
+          {!loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
               <p className="text-sm text-gray-600 mb-1">Всего</p>
@@ -228,14 +227,18 @@ const ExpertFacilitiesPage = () => {
               </p>
             </div>
           </div>
+          )}
 
           {/* Facilities List */}
-          <div className="space-y-4">
-            {filteredFacilities.map((facility) => (
-              <div
-                key={facility.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all"
-              >
+          {!loading && (
+            <>
+              {filteredFacilities.length > 0 ? (
+                <div className="space-y-4">
+                  {filteredFacilities.map((facility) => (
+                    <div
+                      key={facility.id}
+                      className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all"
+                    >
                 <div className="p-4 lg:p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -300,17 +303,19 @@ const ExpertFacilitiesPage = () => {
               </div>
             ))}
           </div>
-
-          {filteredFacilities.length === 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
-              <Zap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Ничего не найдено
-              </h3>
-              <p className="text-gray-600">
-                Попробуйте изменить параметры поиска
-              </p>
-            </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
+                  <Zap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Ничего не найдено
+                  </h3>
+                  <p className="text-gray-500">
+                    Попробуйте изменить фильтры или критерии поиска
+                  </p>
+                </div>
+              )}
+            </>
+          )}
           )}
         </div>
       </div>
