@@ -407,13 +407,169 @@ def seed_sensor_readings():
     print("[OK] История показаний успешно создана")
 
 
+def seed_notifications():
+    """Создает тестовые уведомления для пользователей"""
+    from models import Notification, User, Sensor
+
+    if Notification.query.first():
+        print("Уведомления уже созданы")
+        return
+
+    # Получаем пользователей и сенсоры
+    users = User.query.filter_by(user_type='user').all()
+    sensors = Sensor.query.all()
+
+    if not users:
+        print("Сначала создайте пользователей")
+        return
+
+    # Уведомления для каждого пользователя
+    notifications_data = [
+        {
+            'type': 'sensor',
+            'title': 'Повышенный уровень воды',
+            'message': 'Датчик №1 зафиксировал повышение уровня воды до 4.35м. Следите за обновлениями.',
+            'is_important': True,
+            'is_read': False
+        },
+        {
+            'type': 'info',
+            'title': 'Плановая проверка датчиков',
+            'message': 'Будет проведена плановая проверка всех датчиков мониторинга. Возможны кратковременные перебои в передаче данных.',
+            'is_important': False,
+            'is_read': True
+        },
+        {
+            'type': 'warning',
+            'title': 'Предупреждение о погоде',
+            'message': 'Прогнозируются обильные осадки в течение следующих 48 часов. Рекомендуем подготовиться.',
+            'is_important': True,
+            'is_read': False
+        }
+    ]
+
+    # Создаем уведомления для каждого обычного пользователя
+    for user in users[:3]:  # Первые 3 пользователя
+        for i, notif_data in enumerate(notifications_data):
+            notification = Notification(
+                user_id=user.id,
+                type=notif_data['type'],
+                title=notif_data['title'],
+                message=notif_data['message'],
+                is_important=notif_data['is_important'],
+                is_read=notif_data['is_read'],
+                sensor_id=sensors[0].id if i == 0 and sensors else None,
+                created_at=datetime.utcnow() - timedelta(hours=i*2)
+            )
+            db.session.add(notification)
+            print(f"  Создано уведомление для {user.full_name}: {notif_data['title']}")
+
+    db.session.commit()
+    print("[OK] Все уведомления успешно добавлены")
+
+
+def seed_evacuations():
+    """Создает тестовые эвакуации"""
+    from models import Evacuation, User, Notification
+
+    if Evacuation.query.first():
+        print("Эвакуации уже созданы")
+        return
+
+    # Получаем пользователей
+    users = User.query.filter_by(user_type='user').all()
+
+    if not users or len(users) < 3:
+        print("Недостаточно пользователей для создания эвакуаций")
+        return
+
+    evacuations_data = [
+        {
+            'user_id': users[0].id,
+            'status': 'pending',
+            'evacuation_point': 'Школа №5, ул. Мира, 45',
+            'assigned_team': 'Бригада №1',
+            'priority': 'high',
+            'family_members': 4,
+            'has_disabilities': False,
+            'has_pets': True,
+            'special_needs': 'Необходима помощь с перевозкой питомца',
+            'notes': 'Жильцы готовы к эвакуации'
+        },
+        {
+            'user_id': users[1].id,
+            'status': 'in_progress',
+            'evacuation_point': 'Спорткомплекс "Олимп"',
+            'assigned_team': 'Бригада №2',
+            'priority': 'critical',
+            'family_members': 2,
+            'has_disabilities': True,
+            'has_pets': False,
+            'special_needs': 'Требуется помощь с перемещением (инвалидность)',
+            'notes': 'Бригада направляется на объект'
+        },
+        {
+            'user_id': users[2].id,
+            'status': 'completed',
+            'evacuation_point': 'Гостиница "Центральная"',
+            'assigned_team': 'Бригада №3',
+            'priority': 'medium',
+            'family_members': 3,
+            'has_disabilities': False,
+            'has_pets': True,
+            'special_needs': None,
+            'notes': 'Эвакуация завершена успешно',
+            'completed_at': datetime.utcnow() - timedelta(hours=2)
+        }
+    ]
+
+    for evac_data in evacuations_data:
+        evacuation = Evacuation(**evac_data)
+        db.session.add(evacuation)
+        db.session.flush()  # Получаем ID
+
+        # Создаем уведомление об эвакуации
+        titles = {
+            'pending': 'Назначена эвакуация',
+            'in_progress': 'Эвакуация началась',
+            'completed': 'Эвакуация завершена',
+            'cancelled': 'Эвакуация отменена'
+        }
+
+        messages = {
+            'pending': 'Вам назначена эвакуация. Ожидайте прибытия бригады.',
+            'in_progress': 'Бригада эвакуации направляется к вам. Будьте готовы.',
+            'completed': 'Вы успешно эвакуированы. Спасибо за сотрудничество.',
+            'cancelled': 'Эвакуация отменена. Вы можете оставаться дома.'
+        }
+
+        notification = Notification(
+            user_id=evac_data['user_id'],
+            type='evacuation',
+            title=titles.get(evac_data['status'], 'Обновление статуса эвакуации'),
+            message=messages.get(evac_data['status'], f"Статус эвакуации изменен на: {evac_data['status']}"),
+            evacuation_id=evacuation.id,
+            is_important=True,
+            is_read=(evac_data['status'] == 'completed')
+        )
+        db.session.add(notification)
+
+        user = User.query.get(evac_data['user_id'])
+        print(f"  Создана эвакуация для {user.full_name}: статус {evac_data['status']}")
+
+    db.session.commit()
+    print("[OK] Все эвакуации успешно добавлены")
+
+
 def seed_all():
     """Запускает все функции заполнения БД"""
     print("=== Запуск заполнения БД синтетическими данными ===")
     seed_users()
     seed_sensors()
-    seed_sensor_readings()
     seed_risk_zones()
+    seed_sensor_readings()
+    seed_notifications()
+    seed_evacuations()
     print("=== Заполнение БД завершено ===")
 
 if __name__ == "__main__":

@@ -197,3 +197,108 @@ class RiskZone(db.Model):
 
     def __repr__(self):
         return f'<RiskZone {self.id}: {self.name} ({self.type})>'
+
+
+class Notification(db.Model):
+    """Модель уведомлений для пользователей"""
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+
+    # Тип уведомления
+    type = db.Column(db.String(20), nullable=False)  # info, warning, danger, evacuation, sensor_update
+
+    # Контент
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+
+    # Связанные сущности (опционально)
+    sensor_id = db.Column(db.String(50), db.ForeignKey('sensors.id'), nullable=True)
+    evacuation_id = db.Column(db.Integer, db.ForeignKey('evacuations.id'), nullable=True)
+
+    # Статус
+    is_read = db.Column(db.Boolean, default=False)
+    is_important = db.Column(db.Boolean, default=False)
+
+    # Временные метки
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        """Преобразует уведомление в словарь"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'type': self.type,
+            'title': self.title,
+            'message': self.message,
+            'sensor_id': self.sensor_id,
+            'evacuation_id': self.evacuation_id,
+            'is_read': self.is_read,
+            'read': self.is_read,  # Дублируем для совместимости с фронтендом
+            'is_important': self.is_important,
+            'priority': 'critical' if self.is_important else 'medium',  # Для совместимости
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'timestamp': self.created_at.isoformat() if self.created_at else None,  # Для NotificationItem
+            'read_at': self.read_at.isoformat() if self.read_at else None
+        }
+
+    def __repr__(self):
+        return f'<Notification {self.id}: {self.type} for user={self.user_id}>'
+
+
+class Evacuation(db.Model):
+    """Модель эвакуации жителей"""
+    __tablename__ = 'evacuations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+
+    # Статус эвакуации
+    status = db.Column(db.String(20), default='pending')  # pending, in_progress, completed, cancelled
+
+    # Детали эвакуации
+    evacuation_point = db.Column(db.String(255), nullable=True)
+    assigned_team = db.Column(db.String(100), nullable=True)
+    priority = db.Column(db.String(20), default='medium')  # low, medium, high, critical
+
+    # Информация о жителе
+    family_members = db.Column(db.Integer, default=1)
+    has_disabilities = db.Column(db.Boolean, default=False)
+    has_pets = db.Column(db.Boolean, default=False)
+    special_needs = db.Column(db.Text, nullable=True)
+
+    # Заметки и комментарии
+    notes = db.Column(db.Text, nullable=True)
+
+    # Временные метки
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    # Связи
+    notifications = db.relationship('Notification', backref='evacuation', lazy='dynamic')
+
+    def to_dict(self):
+        """Преобразует эвакуацию в словарь"""
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'status': self.status,
+            'evacuationPoint': self.evacuation_point,
+            'assignedTeam': self.assigned_team,
+            'priority': self.priority,
+            'familyMembers': self.family_members,
+            'hasDisabilities': self.has_disabilities,
+            'hasPets': self.has_pets,
+            'specialNeeds': self.special_needs,
+            'notes': self.notes,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            'completedAt': self.completed_at.isoformat() if self.completed_at else None
+        }
+
+    def __repr__(self):
+        return f'<Evacuation {self.id}: user={self.user_id} status={self.status}>'
+
