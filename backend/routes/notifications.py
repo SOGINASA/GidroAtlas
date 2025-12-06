@@ -128,7 +128,7 @@ def create_notification():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency', 'expert']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -243,7 +243,7 @@ def broadcast_notification():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency', 'expert']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -262,8 +262,9 @@ def broadcast_notification():
 
         # Маппинг role к user_type
         role_to_user_type = {
-            'resident': 'user',
-            'emergency': 'mchs',
+            'user': 'user',
+            'expert': 'expert',
+            'emergency': 'emergency',
             'admin': 'admin'
         }
 

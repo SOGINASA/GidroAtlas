@@ -52,11 +52,11 @@ def get_evacuations():
         status = request.args.get('status')
         priority = request.args.get('priority')
 
-        if user_type in ['admin', 'mchs']:
-            # Admin/MCHS видят все эвакуации
+        if user_type in ['admin', 'emergency']:
+            # Admin/Emergency видят все эвакуации
             query = Evacuation.query
         else:
-            # Обычный пользователь видит только свои
+            # Обычный пользователь и эксперт видят только свои
             query = Evacuation.query.filter_by(user_id=user_id)
 
         # Фильтры
@@ -67,11 +67,11 @@ def get_evacuations():
 
         evacuations = query.order_by(Evacuation.created_at.desc()).all()
 
-        # Для admin/mchs добавляем информацию о пользователе
+        # Для admin/emergency добавляем информацию о пользователе
         result = []
         for evac in evacuations:
             evac_dict = evac.to_dict()
-            if user_type in ['admin', 'mchs']:
+            if user_type in ['admin', 'emergency']:
                 user = User.query.get(evac.user_id)
                 if user:
                     evac_dict['user'] = {
@@ -105,7 +105,7 @@ def initiate_evacuation_operation():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -143,7 +143,7 @@ def initiate_evacuation_operation():
                     # Берем первого доступного пользователя, если есть хотя бы один
                     first_user = User.query.filter_by(user_type='user', is_active=True).first()
                     if not first_user:
-                        first_user = User.query.filter_by(user_type='mchs', is_active=True).first()
+                        first_user = User.query.filter_by(user_type='emergency', is_active=True).first()
                     if not first_user:
                         first_user = User.query.filter_by(user_type='admin', is_active=True).first()
                     
@@ -245,14 +245,14 @@ def get_evacuation(evacuation_id):
         if not evacuation:
             return jsonify({'error': 'Эвакуация не найдена'}), 404
 
-        # Обычный пользователь может видеть только свою эвакуацию
-        if user_type == 'user' and evacuation.user_id != user_id:
+        # Обычный пользователь и эксперт могут видеть только свою эвакуацию
+        if user_type in ['user', 'expert'] and evacuation.user_id != user_id:
             return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
         evac_dict = evacuation.to_dict()
 
-        # Добавляем информацию о пользователе для admin/mchs
-        if user_type in ['admin', 'mchs']:
+        # Добавляем информацию о пользователе для admin/emergency
+        if user_type in ['admin', 'emergency']:
             user = User.query.get(evacuation.user_id)
             if user:
                 evac_dict['user'] = {
@@ -281,7 +281,7 @@ def create_evacuation():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -340,7 +340,7 @@ def update_evacuation(evacuation_id):
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -420,7 +420,7 @@ def get_evacuation_stats():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -478,7 +478,7 @@ def get_evacuation_operations():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:

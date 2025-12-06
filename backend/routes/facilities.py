@@ -130,7 +130,7 @@ def get_facility(fid):
 def create_facility():
     try:
         claims = get_jwt()
-        if claims.get('user_type') not in ['admin', 'mchs']:
+        if claims.get('user_type') not in ['admin', 'emergency']:
             return jsonify({'error': 'Требуются права администратора'}), 403
 
         data = request.get_json()
@@ -178,7 +178,7 @@ def create_facility():
 def update_facility(fid):
     try:
         claims = get_jwt()
-        if claims.get('user_type') not in ['admin', 'mchs']:
+        if claims.get('user_type') not in ['admin', 'emergency']:
             return jsonify({'error': 'Требуются права администратора'}), 403
 
         f = HydroFacility.query.get(fid)

@@ -46,7 +46,7 @@ const normalizeUser = (user) => {
   if (!user) return null;
   return {
     ...user,
-    role: user.role || (user.user_type === 'user' ? 'resident' : user.user_type === 'mchs' ? 'emergency' : user.user_type),
+    role: user.role || user.user_type,
     fullName: user.fullName || user.full_name || user.name || user.email,
   };
 };
@@ -56,7 +56,7 @@ export const saveUserToStorage = (user) => {
     if (!user) return;
     const normalized = {
       ...user,
-      role: user.role || (user.user_type === 'user' ? 'resident' : (user.user_type === 'mchs' ? 'emergency' : user.user_type)),
+      role: user.role || user.user_type,
       fullName: user.fullName || user.full_name || user.name || user.email,
     };
     localStorage.setItem('user', JSON.stringify(normalized));

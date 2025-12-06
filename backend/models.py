@@ -14,7 +14,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
 
     full_name = db.Column(db.String(100))
-    user_type = db.Column(db.String(20), default='user') # user, admin, mchs
+    user_type = db.Column(db.String(20), default='user') # user, expert, emergency, admin
     address = db.Column(db.String(255))
     phone = db.Column(db.String(20))
 
@@ -36,21 +36,13 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
 
     def to_dict(self, include_sensitive=False):
-        # Мапим user_type к role для фронтенда
-        role_mapping = {
-            'user': 'resident',
-            'mchs': 'emergency',
-            'admin': 'admin'
-        }
-        role = role_mapping.get(self.user_type, self.user_type)
-
         data = {
             'id': self.id,
             'email': self.email,
             'full_name': self.full_name,
             'fullName': self.full_name,  # Дублируем для camelCase
             'user_type': self.user_type,
-            'role': role,  # Добавляем для совместимости с фронтендом
+            'role': self.user_type,  # role совпадает с user_type
             'is_verified': self.is_verified,
             'phone': self.phone,
             'address': self.address,

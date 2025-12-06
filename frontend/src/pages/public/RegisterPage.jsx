@@ -24,6 +24,15 @@ const RegisterPage = () => {
 
   const userTypes = [
     {
+      id: 'user',
+      icon: User,
+      title: 'Пользователь',
+      subtitle: 'Базовый доступ',
+      description: 'Для получения уведомлений и информации',
+      color: 'from-green-500 to-green-600',
+      route: '/'
+    },
+    {
       id: 'expert',
       icon: GraduationCap,
       title: 'Эксперт',
@@ -122,7 +131,7 @@ const RegisterPage = () => {
           </div>
 
           {/* Role Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {userTypes.map((role) => {
               const Icon = role.icon;
               return (

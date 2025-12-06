@@ -18,7 +18,7 @@ def get_reports():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -57,7 +57,7 @@ def get_report(report_id):
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -100,7 +100,7 @@ def create_report():
     user_id = int(claims.get('sub'))
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -181,7 +181,7 @@ def update_report(report_id):
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -273,7 +273,7 @@ def get_report_stats():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     try:
@@ -318,7 +318,7 @@ def get_report_templates():
     claims = get_jwt()
     user_type = claims.get('user_type', 'user')
 
-    if user_type not in ['admin', 'mchs']:
+    if user_type not in ['admin', 'emergency']:
         return jsonify({'error': 'Недостаточно прав доступа'}), 403
 
     templates = [
