@@ -7,40 +7,54 @@ import {
   AlertTriangle, 
   Droplets, 
   Zap,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
   Compass
 } from 'lucide-react';
 
-// API Configuration
-const API_KEY = '6f92f492-dc8f-4a23-a6ab-3addf4714b98';
-const API_BASE_URL = 'https://api.maptiler.com/maps';
+// Mock данные - расширенные и реалистичные
+const MOCK_WATER_BODIES = [
+  { id: 1, name: 'Озеро Балхаш', lat: 46.8, lng: 74.9, status: 'warning', condition: 3, region: 'Карагандинская обл.' },
+  { id: 2, name: 'Капшагайское вдхр', lat: 43.9, lng: 77.1, status: 'safe', condition: 2, region: 'Алматинская обл.' },
+  { id: 3, name: 'Бухтарминское вдхр', lat: 47.4, lng: 83.1, status: 'critical', condition: 5, region: 'ВКО' },
+  { id: 4, name: 'Шардаринское вдхр', lat: 41.2, lng: 68.3, status: 'safe', condition: 2, region: 'Туркестанская обл.' },
+  { id: 5, name: 'Жайсан (озеро)', lat: 47.5, lng: 84.8, status: 'warning', condition: 3, region: 'ВКО' },
+  { id: 6, name: 'Алаколь (озеро)', lat: 46.2, lng: 81.8, status: 'safe', condition: 1, region: 'Алматинская обл.' },
+  { id: 7, name: 'Тенгиз (озеро)', lat: 50.5, lng: 69.0, status: 'warning', condition: 4, region: 'Карагандинская обл.' },
+  { id: 8, name: 'Сорбулак (вдхр)', lat: 43.4, lng: 77.3, status: 'safe', condition: 2, region: 'Алматинская обл.' }
+];
+
+const MOCK_FACILITIES = [
+  { id: 1, name: 'Бухтарминская ГЭС', lat: 47.4, lng: 83.1, condition: 3, region: 'ВКО', type: 'ГЭС' },
+  { id: 2, name: 'Капшагайская ГЭС', lat: 43.9, lng: 77.1, condition: 2, region: 'Алматинская обл.', type: 'ГЭС' },
+  { id: 3, name: 'Шардаринская ГЭС', lat: 41.2, lng: 68.3, condition: 4, region: 'Туркестанская обл.', type: 'ГЭС' },
+  { id: 4, name: 'Усть-Каменогорская ГЭС', lat: 49.9, lng: 82.6, condition: 2, region: 'ВКО', type: 'ГЭС' },
+  { id: 5, name: 'Плотина Коктерек', lat: 43.2, lng: 76.8, condition: 5, region: 'Алматинская обл.', type: 'Плотина' },
+  { id: 6, name: 'Плотина Сорбулак', lat: 43.4, lng: 77.3, condition: 1, region: 'Алматинская обл.', type: 'Плотина' }
+];
+
+const MOCK_CRITICAL_ZONES = [
+  { id: 1, name: 'Иртыш (Павлодар)', lat: 52.3, lng: 76.9, level: 'critical', description: 'Высокий уровень воды' },
+  { id: 2, name: 'Урал (Уральск)', lat: 51.2, lng: 51.4, level: 'warning', description: 'Повышенный уровень' },
+  { id: 3, name: 'Сырдарья (Кызылорда)', lat: 44.8, lng: 65.5, level: 'critical', description: 'Критический уровень' }
+];
 
 // Leaflet Map Component
 const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
-
-  // Mock data
-  const criticalZones = [
-    { id: 1, name: 'Иртыш (Павлодар)', lat: 52.3, lng: 76.9, level: 'critical' },
-    { id: 2, name: 'Урал (Уральск)', lat: 51.2, lng: 51.4, level: 'warning' }
-  ];
-
-  const waterBodies = [
-    { id: 1, name: 'Озеро Балхаш', lat: 46.8, lng: 74.9, status: 'warning' },
-    { id: 2, name: 'Капшагайское вдхр', lat: 43.9, lng: 77.1, status: 'safe' }
-  ];
-
-  const facilities = [
-    { id: 1, name: 'Бухтарминская ГЭС', lat: 47.4, lng: 83.1, condition: 3 },
-    { id: 2, name: 'Капшагайская ГЭС', lat: 43.9, lng: 77.1, condition: 2 }
-  ];
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!mapInstanceRef.current && mapRef.current && window.L) {
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current && mapRef.current && window.L && !loading) {
       initializeMap();
     }
 
@@ -50,13 +64,13 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
         mapInstanceRef.current = null;
       }
     };
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
-    if (mapInstanceRef.current) {
+    if (mapInstanceRef.current && !loading) {
       updateMarkers();
     }
-  }, [activeLayer]);
+  }, [activeLayer, loading, selectedRegion]);
 
   const initializeMap = () => {
     const L = window.L;
@@ -67,13 +81,54 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
       zoomControl: false
     });
 
-    // Добавление базового слоя с MapTiler API
-    L.tileLayer(`${API_BASE_URL}/streets-v2/{z}/{x}/{y}.png?key=${API_KEY}`, {
-      attribution: '© MapTiler © OpenStreetMap contributors',
-      maxZoom: 18,
-      tileSize: 512,
-      zoomOffset: -1
+    // БЕСПЛАТНЫЕ OpenStreetMap тайлы - БЕЗ API КЛЮЧЕЙ!
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
     }).addTo(mapInstanceRef.current);
+
+    // Добавляем кастомные контролы зума
+    const zoomControl = L.control({ position: 'topright' });
+    zoomControl.onAdd = function() {
+      const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      div.innerHTML = `
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+          <button class="zoom-in-btn w-10 h-10 flex items-center justify-center hover:bg-gray-50 border-b border-gray-200 transition-colors">
+            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+          </button>
+          <button class="zoom-out-btn w-10 h-10 flex items-center justify-center hover:bg-gray-50 transition-colors">
+            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+      
+      L.DomEvent.disableClickPropagation(div);
+      
+      div.querySelector('.zoom-in-btn').onclick = () => {
+        mapInstanceRef.current.zoomIn();
+      };
+      
+      div.querySelector('.zoom-out-btn').onclick = () => {
+        mapInstanceRef.current.zoomOut();
+      };
+      
+      return div;
+    };
+    zoomControl.addTo(mapInstanceRef.current);
+
+    // Инициализируем маркеры сразу
+    updateMarkers();
+  };
+
+  const filterByRegion = (items) => {
+    if (selectedRegion === 'all') return items;
+    return items.filter(item => 
+      item.region && item.region.toLowerCase().includes(selectedRegion.toLowerCase())
+    );
   };
 
   const updateMarkers = () => {
@@ -87,7 +142,8 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
 
     // Критические зоны
     if (activeLayer.critical) {
-      criticalZones.forEach(zone => {
+      const zones = filterByRegion(MOCK_CRITICAL_ZONES);
+      zones.forEach(zone => {
         const color = zone.level === 'critical' ? '#EF4444' : '#F59E0B';
         
         const marker = L.marker([zone.lat, zone.lng], {
@@ -96,7 +152,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
               <div class="relative">
                 <div class="w-16 h-16 rounded-full flex items-center justify-center animate-pulse" 
                      style="background-color: ${color}40">
-                  <div class="w-12 h-12 rounded-full flex items-center justify-center" 
+                  <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg" 
                        style="background-color: ${color}">
                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
@@ -112,14 +168,22 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
         });
 
         marker.bindPopup(`
-          <div class="p-3">
-            <h3 class="font-bold text-lg mb-2 text-red-700">${zone.name}</h3>
-            <p class="text-sm mb-2">Уровень: ${zone.level === 'critical' ? 'Критический' : 'Предупреждение'}</p>
-            <button class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold">
+          <div class="p-3 min-w-[200px]">
+            <div class="flex items-center mb-2">
+              <div class="w-3 h-3 rounded-full animate-pulse mr-2" style="background-color: ${color}"></div>
+              <h3 class="font-bold text-lg">${zone.name}</h3>
+            </div>
+            <p class="text-sm text-gray-600 mb-2">${zone.description}</p>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-3">
+              <p class="text-xs font-semibold text-red-800">
+                ${zone.level === 'critical' ? '⚠️ КРИТИЧЕСКИЙ УРОВЕНЬ' : '⚡ ПРЕДУПРЕЖДЕНИЕ'}
+              </p>
+            </div>
+            <button onclick="alert('Открываем детали зоны...')" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
-        `);
+        `, { maxWidth: 250 });
 
         marker.on('click', () => {
           if (onMarkerClick) onMarkerClick({ type: 'critical', data: zone });
@@ -132,6 +196,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
 
     // Водоёмы
     if (activeLayer.waterbodies) {
+      const waterBodies = filterByRegion(MOCK_WATER_BODIES);
       waterBodies.forEach(wb => {
         const colors = {
           critical: '#EF4444',
@@ -144,10 +209,10 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
           icon: L.divIcon({
             html: `
               <div class="relative">
-                <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2 border-white" 
+                <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-3 border-white" 
                      style="background-color: ${color}">
-                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                  <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"></path>
                   </svg>
                 </div>
               </div>
@@ -159,17 +224,28 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
         });
 
         marker.bindPopup(`
-          <div class="p-3">
-            <h3 class="font-bold text-lg mb-2">${wb.name}</h3>
-            <p class="text-sm mb-2">Статус: ${
-              wb.status === 'critical' ? 'Критический' :
-              wb.status === 'warning' ? 'Предупреждение' : 'Безопасно'
-            }</p>
-            <button class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">
+          <div class="p-3 min-w-[220px]">
+            <h3 class="font-bold text-lg mb-1">${wb.name}</h3>
+            <p class="text-xs text-gray-500 mb-3">${wb.region}</p>
+            <div class="space-y-2 mb-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Состояние:</span>
+                <span class="px-2 py-1 rounded-full text-xs font-semibold" style="background-color: ${color}20; color: ${color}">
+                  Категория ${wb.condition}
+                </span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Статус:</span>
+                <span class="text-sm font-medium">
+                  ${wb.status === 'critical' ? '🔴 Критично' : wb.status === 'warning' ? '🟡 Внимание' : '🟢 Норма'}
+                </span>
+              </div>
+            </div>
+            <button onclick="alert('Открываем детали водоёма...')" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
-        `);
+        `, { maxWidth: 250 });
 
         marker.on('click', () => {
           if (onMarkerClick) onMarkerClick({ type: 'waterbody', data: wb });
@@ -180,48 +256,61 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
       });
     }
 
-    // ГТС
+    // ГТС (Гидротехнические сооружения)
     if (activeLayer.facilities) {
-      facilities.forEach(fac => {
-        const colors = {
-          5: '#EF4444',
-          4: '#F97316',
-          3: '#F59E0B',
+      const facilities = filterByRegion(MOCK_FACILITIES);
+      facilities.forEach(facility => {
+        const conditionColors = {
+          1: '#10B981',
           2: '#84CC16',
-          1: '#10B981'
+          3: '#F59E0B',
+          4: '#F97316',
+          5: '#EF4444'
         };
-        const color = colors[fac.condition] || '#10B981';
+        const color = conditionColors[facility.condition] || '#6B7280';
 
-        const marker = L.marker([fac.lat, fac.lng], {
+        const marker = L.marker([facility.lat, facility.lng], {
           icon: L.divIcon({
             html: `
               <div class="relative">
-                <div class="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg border-2 border-white" 
+                <div class="w-12 h-12 rounded-lg flex items-center justify-center shadow-lg border-3 border-white" 
                      style="background-color: ${color}">
-                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                   </svg>
                 </div>
               </div>
             `,
             className: 'custom-facility-marker',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
           })
         });
 
         marker.bindPopup(`
-          <div class="p-3">
-            <h3 class="font-bold text-lg mb-2">${fac.name}</h3>
-            <p class="text-sm mb-2">Категория: ${fac.condition}</p>
-            <button class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold">
+          <div class="p-3 min-w-[220px]">
+            <h3 class="font-bold text-lg mb-1">${facility.name}</h3>
+            <p class="text-xs text-gray-500 mb-3">${facility.region}</p>
+            <div class="space-y-2 mb-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Тип:</span>
+                <span class="text-sm font-medium">${facility.type}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Категория:</span>
+                <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: ${color}">
+                  ${facility.condition}
+                </span>
+              </div>
+            </div>
+            <button onclick="alert('Открываем детали ГТС...')" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
-        `);
+        `, { maxWidth: 250 });
 
         marker.on('click', () => {
-          if (onMarkerClick) onMarkerClick({ type: 'facility', data: fac });
+          if (onMarkerClick) onMarkerClick({ type: 'facility', data: facility });
         });
 
         marker.addTo(mapInstanceRef.current);
@@ -230,78 +319,18 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick }) => {
     }
   };
 
-  const zoomIn = () => {
-    if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();
-  };
-
-  const zoomOut = () => {
-    if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
-  };
-
-  const resetView = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([48.0196, 66.9237], 6);
-    }
-  };
-
-  return (
-    <div className="relative w-full h-full">
-      <div ref={mapRef} className="absolute inset-0 bg-gray-200" />
-      
-      {!window.L && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 via-green-50 to-yellow-50">
-          <div className="text-center bg-white/90 backdrop-blur-sm rounded-xl p-8 shadow-xl max-w-md">
-            <MapPin className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-            <p className="text-gray-700 text-lg font-semibold mb-2">Загрузка карты...</p>
-            <p className="text-gray-500 text-sm mb-4">
-              Подключите Leaflet для отображения интерактивной карты
-            </p>
-            <div className="text-left bg-gray-100 rounded-lg p-4 text-xs font-mono">
-              <p className="text-blue-600 mb-1">{`<!-- В index.html -->`}</p>
-              <p className="text-gray-700 mb-2">{`<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />`}</p>
-              <p className="text-gray-700">{`<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>`}</p>
-            </div>
-          </div>
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-red-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Загрузка карты...</p>
         </div>
-      )}
-
-      {/* Zoom Controls */}
-      <div className="absolute right-4 top-4 flex flex-col space-y-2 z-[1000]">
-        <button 
-          onClick={zoomIn}
-          className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-        >
-          <ZoomIn className="w-5 h-5 text-gray-700" />
-        </button>
-        <button 
-          onClick={zoomOut}
-          className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-        >
-          <ZoomOut className="w-5 h-5 text-gray-700" />
-        </button>
-        <button 
-          onClick={resetView}
-          className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
-        >
-          <Compass className="w-5 h-5 text-gray-700" />
-        </button>
-        <button className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
-          <Maximize2 className="w-5 h-5 text-gray-700" />
-        </button>
       </div>
+    );
+  }
 
-      {/* Map Info Overlay */}
-      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg z-[1000]">
-        <div className="flex items-center space-x-2 text-sm">
-          <MapPin className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold">Карта мониторинга МЧС</span>
-        </div>
-        <p className="text-xs text-gray-600 mt-1">
-          MapTiler API интегрирован
-        </p>
-      </div>
-    </div>
-  );
+  return <div ref={mapRef} className="w-full h-full" />;
 };
 
 const EmergencyMap = () => {
@@ -313,6 +342,14 @@ const EmergencyMap = () => {
   });
 
   const [selectedRegion, setSelectedRegion] = useState('all');
+
+  // Считаем статистику из mock данных
+  const stats = {
+    waterbodies: MOCK_WATER_BODIES.length,
+    facilities: MOCK_FACILITIES.length,
+    critical: MOCK_WATER_BODIES.filter(wb => wb.status === 'critical').length + MOCK_CRITICAL_ZONES.length,
+    sensors: 234
+  };
 
   const toggleLayer = (layer) => {
     setActiveLayer(prev => ({ ...prev, [layer]: !prev[layer] }));
@@ -327,13 +364,13 @@ const EmergencyMap = () => {
     <EmergencyLayout>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
+        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white">
           <div className="container mx-auto px-4 py-6">
             <h1 className="text-3xl font-bold mb-2 flex items-center">
               <MapPin className="w-8 h-8 mr-3" />
-              Карта мониторинга
+              Карта мониторинга МЧС
             </h1>
-            <p className="text-blue-100">Интерактивная карта водных ресурсов и ГТС Казахстана</p>
+            <p className="text-red-100">Интерактивная карта водных ресурсов и ГТС Казахстана</p>
           </div>
         </div>
 
@@ -347,52 +384,52 @@ const EmergencyMap = () => {
               {/* Layers Control */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <h3 className="text-lg font-bold mb-4 flex items-center">
-                  <Layers className="w-5 h-5 mr-2 text-blue-600" />
+                  <Layers className="w-5 h-5 mr-2 text-red-600" />
                   Слои карты
                 </h3>
                 
                 <div className="space-y-3">
-                  <label className="flex items-center space-x-3 cursor-pointer">
+                  <label className="flex items-center space-x-3 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={activeLayer.waterbodies}
                       onChange={() => toggleLayer('waterbodies')}
-                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />
-                    <Droplets className="w-5 h-5 text-blue-500" />
-                    <span className="text-sm font-medium">Водоёмы</span>
+                    <Droplets className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
+                    <span className="text-sm font-medium">Водоёмы ({MOCK_WATER_BODIES.length})</span>
                   </label>
 
-                  <label className="flex items-center space-x-3 cursor-pointer">
+                  <label className="flex items-center space-x-3 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={activeLayer.facilities}
                       onChange={() => toggleLayer('facilities')}
-                      className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
                     />
-                    <Zap className="w-5 h-5 text-purple-500" />
-                    <span className="text-sm font-medium">ГТС</span>
+                    <Zap className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />
+                    <span className="text-sm font-medium">ГТС ({MOCK_FACILITIES.length})</span>
                   </label>
 
-                  <label className="flex items-center space-x-3 cursor-pointer">
+                  <label className="flex items-center space-x-3 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={activeLayer.critical}
                       onChange={() => toggleLayer('critical')}
-                      className="w-5 h-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                      className="w-5 h-5 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
                     />
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
-                    <span className="text-sm font-medium">Критические зоны</span>
+                    <AlertTriangle className="w-5 h-5 text-red-500 group-hover:scale-110 transition-transform" />
+                    <span className="text-sm font-medium">Критические зоны ({MOCK_CRITICAL_ZONES.length})</span>
                   </label>
 
-                  <label className="flex items-center space-x-3 cursor-pointer">
+                  <label className="flex items-center space-x-3 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={activeLayer.sensors}
                       onChange={() => toggleLayer('sensors')}
-                      className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
                     />
-                    <Compass className="w-5 h-5 text-green-500" />
+                    <Compass className="w-5 h-5 text-green-500 group-hover:scale-110 transition-transform" />
                     <span className="text-sm font-medium">Датчики</span>
                   </label>
                 </div>
@@ -401,21 +438,21 @@ const EmergencyMap = () => {
               {/* Region Filter */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <h3 className="text-lg font-bold mb-4 flex items-center">
-                  <Filter className="w-5 h-5 mr-2 text-blue-600" />
+                  <Filter className="w-5 h-5 mr-2 text-red-600" />
                   Фильтр региона
                 </h3>
                 
                 <select
                   value={selectedRegion}
                   onChange={(e) => setSelectedRegion(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                 >
                   <option value="all">Вся страна</option>
-                  <option value="almaty">Алматинская обл.</option>
-                  <option value="vko">ВКО</option>
-                  <option value="pavlodar">Павлодарская обл.</option>
-                  <option value="zko">ЗКО</option>
-                  <option value="sko">СКО</option>
+                  <option value="алматинская">Алматинская обл.</option>
+                  <option value="вко">ВКО</option>
+                  <option value="карагандинская">Карагандинская обл.</option>
+                  <option value="павлодарская">Павлодарская обл.</option>
+                  <option value="туркестанская">Туркестанская обл.</option>
                 </select>
               </div>
 
@@ -426,19 +463,23 @@ const EmergencyMap = () => {
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                    <span>Критично</span>
+                    <span>Критично (Кат. 5)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                    <span>Опасно (Кат. 4)</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-                    <span>Предупреждение</span>
+                    <span>Внимание (Кат. 3)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-green-400 rounded-full"></div>
+                    <span>Хорошо (Кат. 2)</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                    <span>Безопасно</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                    <span>Норма</span>
+                    <span>Отлично (Кат. 1)</span>
                   </div>
                 </div>
               </div>
@@ -448,21 +489,21 @@ const EmergencyMap = () => {
                 <h3 className="text-lg font-bold mb-4">Статистика</h3>
                 
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-600">Водоёмов:</span>
-                    <span className="font-bold">156</span>
+                    <span className="font-bold text-lg">{stats.waterbodies}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-600">ГТС:</span>
-                    <span className="font-bold">47</span>
+                    <span className="font-bold text-lg">{stats.facilities}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-600">Критич. зон:</span>
-                    <span className="font-bold text-red-600">8</span>
+                    <span className="font-bold text-lg text-red-600">{stats.critical}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-600">Датчиков:</span>
-                    <span className="font-bold text-green-600">234</span>
+                    <span className="font-bold text-lg text-green-600">{stats.sensors}</span>
                   </div>
                 </div>
               </div>

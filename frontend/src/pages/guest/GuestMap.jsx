@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import GuestLayout from '../../components/navigation/guest/GuestLayout';
 import { MapPin, Droplets, Zap, X, Info, AlertCircle, Loader2 } from 'lucide-react';
 
-// API Configuration
-const API_BASE_URL = 'https://gidroatlas.nuriq.dev/api';
-const API_TOKEN = '6f92f492-dc8f-4a23-a6ab-3addf4714b98';
+// API Configuration from ENV
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+const API_TOKEN = process.env.REACT_APP_API_TOKEN;
 
 const fetchAPI = async (endpoint) => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -84,6 +84,11 @@ const GuestMapPage = () => {
   const getConditionColor = (condition) => {
     const colors = { 1: '#10B981', 2: '#84CC16', 3: '#F59E0B', 4: '#F97316', 5: '#EF4444' };
     return colors[condition] || colors[3];
+  };
+
+  const getConditionLabel = (condition) => {
+    const labels = { 1: 'Отличное', 2: 'Хорошее', 3: 'Удовлетворительное', 4: 'Плохое', 5: 'Критическое' };
+    return labels[condition] || 'Неизвестно';
   };
 
   const getTypeLabel = (type) => {
@@ -249,14 +254,17 @@ const GuestMapPage = () => {
                     <span>ГТС</span>
                   </div>
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Состояние:</p>
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Техническое состояние:</p>
                     {[1, 2, 3, 4, 5].map((cat) => (
-                      <div key={cat} className="flex items-center space-x-2 mb-1">
-                        <div 
-                          className="w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: getConditionColor(cat) }}
-                        />
-                        <span className="text-xs">Категория {cat}</span>
+                      <div key={cat} className="flex items-center justify-between mb-1">
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-4 h-4 rounded-full border border-gray-300"
+                            style={{ backgroundColor: getConditionColor(cat) }}
+                          />
+                          <span className="text-xs">Кат. {cat}</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{getConditionLabel(cat)}</span>
                       </div>
                     ))}
                   </div>
@@ -267,9 +275,10 @@ const GuestMapPage = () => {
             {!showLegend && (
               <button
                 onClick={() => setShowLegend(true)}
-                className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 z-20"
+                className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 z-20 flex items-center space-x-2"
               >
                 <Info className="w-5 h-5" />
+                <span>Легенда</span>
               </button>
             )}
           </div>
@@ -308,7 +317,7 @@ const GuestMapPage = () => {
         </div>
       </div>
 
-      {/* Object Details Modal */}
+      {/* Object Details Modal - GUEST VERSION (Limited Access) */}
       {selectedObject && (
         <>
           <div 
@@ -349,10 +358,10 @@ const GuestMapPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Регион</p>
-                  <p className="font-semibold text-gray-900">{selectedObject.region}</p>
+                  <p className="font-semibold text-gray-900">{selectedObject.region || 'Не указан'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Состояние</p>
+                  <p className="text-sm text-gray-600 mb-1">Техн. состояние</p>
                   <div className="flex items-center space-x-2">
                     <div 
                       className="w-4 h-4 rounded-full"
@@ -375,9 +384,9 @@ const GuestMapPage = () => {
 
               {/* Мощность для ГТС */}
               {selectedObject.capacity && (
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <p className="text-sm text-blue-700 mb-1">Мощность</p>
-                  <p className="text-2xl font-bold text-blue-900">{selectedObject.capacity} МВт</p>
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <p className="text-sm text-purple-700 mb-1">Мощность</p>
+                  <p className="text-2xl font-bold text-purple-900">{selectedObject.capacity} МВт</p>
                 </div>
               )}
 
@@ -391,6 +400,7 @@ const GuestMapPage = () => {
                 </div>
               )}
 
+              {/* Guest Access Warning */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start space-x-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
@@ -401,6 +411,7 @@ const GuestMapPage = () => {
                 </div>
               </div>
 
+              {/* Login Button */}
               <button
                 onClick={() => window.location.href = '/login'}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg"

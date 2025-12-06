@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { 
   MapPin, 
   Droplets, 
@@ -15,12 +14,23 @@ import {
   AlertTriangle,
   TrendingUp,
   Filter,
-  Search
+  Search,
+  Navigation,
+  Layers,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
-// API Configuration
-const API_BASE_URL = 'https://gidroatlas.nuriq.dev/api';
-const API_TOKEN = '6f92f492-dc8f-4a23-a6ab-3addf4714b98';
+// Mock ExpertLayout component
+const ExpertLayout = ({ children }) => (
+  <div className="min-h-screen bg-gray-50">
+    {children}
+  </div>
+);
+
+// API Configuration from ENV
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+const API_TOKEN = process.env.REACT_APP_API_TOKEN;
 
 const fetchAPI = async (endpoint) => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -47,6 +57,11 @@ const ExpertMapPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCondition, setFilterCondition] = useState('all');
   const [filterRegion, setFilterRegion] = useState('all');
+  const [showLayers, setShowLayers] = useState({
+    waterBodies: true,
+    facilities: true,
+    regions: true
+  });
 
   useEffect(() => {
     fetchData();
@@ -174,7 +189,7 @@ const ExpertMapPage = () => {
   });
 
   // Получаем уникальные регионы
-  const regions = [...new Set([...waterBodies, ...facilities].map(o => o.region))].sort();
+  const regions = [...new Set([...waterBodies, ...facilities].map(o => o.region))].filter(Boolean).sort();
 
   const getPriorityBadge = (priority) => {
     if (!priority) return null;
@@ -315,7 +330,7 @@ const ExpertMapPage = () => {
             </div>
 
             {/* Water Bodies Markers */}
-            {!loading && filteredWaterBodies.map((wb) => (
+            {!loading && showLayers.waterBodies && filteredWaterBodies.map((wb) => (
               <button
                 key={`wb-${wb.id}`}
                 onClick={() => handleObjectClick(wb, 'waterbody')}
@@ -341,7 +356,7 @@ const ExpertMapPage = () => {
             ))}
 
             {/* Facilities Markers */}
-            {!loading && filteredFacilities.map((f) => (
+            {!loading && showLayers.facilities && filteredFacilities.map((f) => (
               <button
                 key={`f-${f.id}`}
                 onClick={() => handleObjectClick(f, 'facility')}
@@ -366,9 +381,38 @@ const ExpertMapPage = () => {
               </button>
             ))}
 
+            {/* Map Controls */}
+            <div className="absolute top-4 right-4 space-y-2 z-20">
+              <button
+                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
+                title="Приблизить"
+              >
+                <ZoomIn className="w-5 h-5 text-gray-700" />
+              </button>
+              <button
+                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
+                title="Отдалить"
+              >
+                <ZoomOut className="w-5 h-5 text-gray-700" />
+              </button>
+              <button
+                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
+                title="Моё местоположение"
+              >
+                <Navigation className="w-5 h-5 text-gray-700" />
+              </button>
+              <button
+                onClick={() => setShowLayers(prev => ({ ...prev, waterBodies: !prev.waterBodies, facilities: !prev.facilities }))}
+                className="w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors"
+                title="Слои карты"
+              >
+                <Layers className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
+
             {/* Legend */}
             {showLegend && (
-              <div className="absolute bottom-4 right-4 bg-white rounded-xl shadow-xl p-4 max-w-xs z-20">
+              <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-xl p-4 max-w-xs z-20">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-bold text-gray-900">Легенда</h3>
                   <button
@@ -409,9 +453,10 @@ const ExpertMapPage = () => {
             {!showLegend && (
               <button
                 onClick={() => setShowLegend(true)}
-                className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 z-20"
+                className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 z-20 flex items-center space-x-2"
               >
                 <Info className="w-5 h-5" />
+                <span>Легенда</span>
               </button>
             )}
           </div>
@@ -457,7 +502,7 @@ const ExpertMapPage = () => {
         </div>
       </div>
 
-      {/* Object Details Modal - EXPERT VERSION */}
+      {/* Object Details Modal */}
       {selectedObject && (
         <>
           <div 
@@ -465,7 +510,6 @@ const ExpertMapPage = () => {
             onClick={() => setSelectedObject(null)}
           />
           <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-3xl bg-white rounded-2xl shadow-2xl z-50 overflow-hidden max-h-[90vh]">
-            {/* Header */}
             <div 
               className="px-6 py-4 text-white"
               style={{ background: `linear-gradient(135deg, ${getConditionColor(selectedObject.condition)} 0%, ${getConditionColor(selectedObject.condition)}dd 100%)` }}
@@ -496,13 +540,11 @@ const ExpertMapPage = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* Main Info Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Регион</p>
-                  <p className="font-semibold text-gray-900">{selectedObject.region}</p>
+                  <p className="font-semibold text-gray-900">{selectedObject.region || 'Не указан'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Техн. состояние</p>
@@ -520,7 +562,6 @@ const ExpertMapPage = () => {
                 </div>
               </div>
 
-              {/* Specific Info */}
               {selectedObject.waterType && (
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <div className="flex items-center space-x-2 mb-2">
@@ -528,7 +569,7 @@ const ExpertMapPage = () => {
                     <p className="text-sm font-semibold text-blue-700">Тип воды</p>
                   </div>
                   <p className="text-lg font-bold text-blue-900">
-                    {selectedObject.waterType === 'fresh' ? '💧 Пресная' : '🌊 Непресная'}
+                    {selectedObject.waterType === 'fresh' ? 'Пресная' : 'Непресная'}
                   </p>
                 </div>
               )}
@@ -540,7 +581,7 @@ const ExpertMapPage = () => {
                     <p className="text-sm font-semibold text-green-700">Наличие фауны</p>
                   </div>
                   <p className="text-lg font-bold text-green-900">
-                    {selectedObject.fauna ? '✓ Да' : '✗ Нет'}
+                    {selectedObject.fauna ? 'Да' : 'Нет'}
                   </p>
                 </div>
               )}
@@ -555,7 +596,6 @@ const ExpertMapPage = () => {
                 </div>
               )}
 
-              {/* Passport Date Section - продолжение */}
               {selectedObject.passportDate && (
                 <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
                   <div className="flex items-center space-x-2 mb-2">
@@ -584,7 +624,6 @@ const ExpertMapPage = () => {
                 </div>
               )}
 
-              {/* Coordinates */}
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="flex items-center space-x-2 mb-2">
                   <MapPin className="w-5 h-5 text-gray-600" />
@@ -602,7 +641,6 @@ const ExpertMapPage = () => {
                 </div>
               </div>
 
-              {/* Priority Explanation */}
               {selectedObject.priority && selectedObject.priority.score > 0 && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
                   <div className="flex items-center space-x-2 mb-3">
@@ -635,7 +673,6 @@ const ExpertMapPage = () => {
                 </div>
               )}
 
-              {/* Additional Info */}
               {selectedObject.description && (
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <p className="text-sm font-semibold text-gray-700 mb-2">Описание</p>
@@ -643,7 +680,6 @@ const ExpertMapPage = () => {
                 </div>
               )}
 
-              {/* Actions */}
               <div className="flex space-x-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setSelectedObject(null)}
