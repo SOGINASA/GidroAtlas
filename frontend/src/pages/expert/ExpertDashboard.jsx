@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
-import { 
-  Droplets, 
-  Zap, 
-  AlertTriangle, 
+import {
+  Droplets,
+  Zap,
+  AlertTriangle,
   TrendingUp,
   MapPin,
   Brain,
@@ -11,69 +11,159 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getAllSensors, getCriticalSensors } from '../../services/sensorService';
+import { getNotifications } from '../../services/notificationService';
+import { getPredictions } from '../../services/predictionService';
 
 const ExpertDashboard = () => {
-  // Mock data
-  const stats = [
+  const [stats, setStats] = useState([
     {
       icon: Droplets,
       label: 'Водоёмов',
-      value: '156',
-      change: '+3',
+      value: '0',
+      change: '+0',
       color: 'from-blue-500 to-cyan-500'
     },
     {
       icon: Zap,
-      label: 'ГТС',
-      value: '48',
-      change: '+1',
+      label: 'Датчиков',
+      value: '0',
+      change: '+0',
       color: 'from-orange-500 to-red-500'
     },
     {
       icon: AlertTriangle,
       label: 'Требуют внимания',
-      value: '12',
-      change: '+2',
+      value: '0',
+      change: '+0',
       color: 'from-red-500 to-pink-500'
     },
     {
       icon: TrendingUp,
       label: 'Прогнозов',
-      value: '24',
-      change: '+5',
+      value: '0',
+      change: '+0',
       color: 'from-purple-500 to-indigo-500'
     }
-  ];
+  ]);
 
-  const recentAlerts = [
-    {
-      id: 1,
-      title: 'Критический уровень воды',
-      location: 'Река Иртыш',
-      severity: 'high',
-      time: '15 мин назад'
-    },
-    {
-      id: 2,
-      title: 'Требуется обследование',
-      location: 'Капшагайская ГЭС',
-      severity: 'medium',
-      time: '2 часа назад'
-    },
-    {
-      id: 3,
-      title: 'Обновление прогноза',
-      location: 'Алматинская область',
-      severity: 'low',
-      time: '5 часов назад'
+  const [recentAlerts, setRecentAlerts] = useState([]);
+  const [priorityObjects, setPriorityObjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Загрузка датчиков
+      const sensorsResponse = await getAllSensors();
+      const sensors = sensorsResponse.data || [];
+
+      // Загрузка критических датчиков
+      const criticalResponse = await getCriticalSensors();
+      const criticalSensors = criticalResponse.data || [];
+
+      // Загрузка прогнозов
+      const predictions = await getPredictions();
+
+      // Загрузка уведомлений
+      let notifications = [];
+      try {
+        const notificationsResponse = await getNotifications({ limit: 3 });
+        notifications = notificationsResponse.data || [];
+      } catch (error) {
+        console.log('Notifications not available (requires auth)');
+      }
+
+      // Обновление статистики
+      setStats([
+        {
+          icon: Droplets,
+          label: 'Датчиков активно',
+          value: sensors.length.toString(),
+          change: `+${sensors.filter(s => s.status === 'active').length}`,
+          color: 'from-blue-500 to-cyan-500'
+        },
+        {
+          icon: Zap,
+          label: 'В норме',
+          value: sensors.filter(s => s.dangerLevel === 'safe').length.toString(),
+          change: `${sensors.filter(s => s.dangerLevel === 'safe').length}`,
+          color: 'from-green-500 to-emerald-500'
+        },
+        {
+          icon: AlertTriangle,
+          label: 'Требуют внимания',
+          value: criticalSensors.length.toString(),
+          change: `+${criticalSensors.filter(s => s.dangerLevel === 'critical').length}`,
+          color: 'from-red-500 to-pink-500'
+        },
+        {
+          icon: TrendingUp,
+          label: 'Прогнозов',
+          value: predictions.length.toString(),
+          change: `+${predictions.filter(p => p.riskLevel === 'high').length}`,
+          color: 'from-purple-500 to-indigo-500'
+        }
+      ]);
+
+      // Преобразование уведомлений в алерты
+      if (notifications.length > 0) {
+        const alerts = notifications.slice(0, 3).map(notification => ({
+          id: notification.id,
+          title: notification.title,
+          location: notification.message || 'Системное уведомление',
+          severity: notification.type === 'danger' ? 'high' :
+                   notification.type === 'warning' ? 'medium' : 'low',
+          time: getTimeAgo(notification.createdAt || notification.timestamp)
+        }));
+        setRecentAlerts(alerts);
+      } else {
+        // Используем критические датчики как алерты
+        const sensorAlerts = criticalSensors.slice(0, 3).map(sensor => ({
+          id: sensor.id,
+          title: sensor.dangerLevel === 'critical' ? 'Критический уровень воды' : 'Повышенный уровень',
+          location: sensor.location || sensor.name,
+          severity: sensor.dangerLevel === 'critical' ? 'high' : 'medium',
+          time: getTimeAgo(sensor.lastUpdate)
+        }));
+        setRecentAlerts(sensorAlerts);
+      }
+
+      // Создание приоритетных объектов из критических датчиков
+      const priority = criticalSensors.slice(0, 3).map((sensor, index) => ({
+        id: sensor.id,
+        name: sensor.name,
+        priority: sensor.dangerLevel === 'critical' ? 'Высокий' : 'Средний',
+        score: sensor.dangerLevel === 'critical' ? 18 - index * 2 : 12 - index * 2,
+        region: sensor.location || 'Не указан'
+      }));
+      setPriorityObjects(priority);
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const priorityObjects = [
-    { id: 1, name: 'Бухтарминское водохранилище', priority: 'Высокий', score: 18, region: 'ВКО' },
-    { id: 2, name: 'Шульбинская ГЭС', priority: 'Высокий', score: 15, region: 'ВКО' },
-    { id: 3, name: 'Озеро Зайсан', priority: 'Средний', score: 9, region: 'ВКО' }
-  ];
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return 'недавно';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / 60000);
+
+    if (diffInMinutes < 1) return 'только что';
+    if (diffInMinutes < 60) return `${diffInMinutes} мин назад`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} час${diffInHours === 1 ? '' : diffInHours < 5 ? 'а' : 'ов'} назад`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} ${diffInDays === 1 ? 'день' : diffInDays < 5 ? 'дня' : 'дней'} назад`;
+  };
 
   const getSeverityColor = (severity) => {
     switch (severity) {
@@ -98,6 +188,13 @@ const ExpertDashboard = () => {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка данных...</p>
+            </div>
+          )}
           
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

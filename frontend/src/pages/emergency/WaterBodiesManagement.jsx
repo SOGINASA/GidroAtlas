@@ -1,15 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Search, Filter, MapPin, TrendingUp, TrendingDown, Droplets, AlertTriangle } from 'lucide-react';
+import { getWaterBodies } from '../../services/waterBodyService';
+import { getAllSensors } from '../../services/sensorService';
 
 const WaterBodiesManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [sortBy, setSortBy] = useState('name');
+  const [waterBodies, setWaterBodies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock данные водоёмов
-  const waterBodies = [
+  // Fetch water bodies on mount
+  useEffect(() => {
+    fetchWaterBodies();
+  }, []);
+
+  const fetchWaterBodies = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      let data = await getWaterBodies();
+
+      // Если нет водоемов, используем датчики как водоемы
+      if (!data || data.length === 0) {
+        console.log('No water bodies found, using sensors as water bodies');
+        const sensorsResponse = await getAllSensors();
+        const sensors = sensorsResponse.data || [];
+
+        // Преобразуем датчики в формат водоемов
+        data = sensors.map(sensor => ({
+          id: sensor.id,
+          name: sensor.name,
+          region: sensor.location || 'Не указан',
+          type: 'Датчик мониторинга',
+          area: 0,
+          currentLevel: sensor.waterLevel,
+          normalLevel: 4.0,
+          trend: sensor.waterLevel > 5.0 ? 'rising' : sensor.waterLevel < 3.0 ? 'falling' : 'stable',
+          status: sensor.dangerLevel,
+          riskLevel: sensor.dangerLevel === 'critical' ? 'high' : sensor.dangerLevel === 'danger' ? 'medium' : 'low',
+          sensors: 1,
+          fauna: false,
+          lastUpdate: sensor.lastUpdate
+        }));
+      }
+
+      setWaterBodies(data || []);
+    } catch (err) {
+      console.error('Error loading water bodies:', err);
+      console.warn('[WARNING] Using mock data for WaterBodiesManagement - API request failed');
+      setError('Ошибка загрузки данных');
+      // Set default mock data on error
+      setDefaultMockData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setDefaultMockData = () => {
+    setWaterBodies([
     {
       id: 1,
       name: 'Озеро Балхаш',
@@ -94,7 +147,8 @@ const WaterBodiesManagement = () => {
       sensors: 18,
       fauna: true
     }
-  ];
+  ]);
+  };
 
   const filteredBodies = waterBodies.filter(body => {
     const matchesSearch = body.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,6 +184,20 @@ const WaterBodiesManagement = () => {
             <p className="text-blue-100">Мониторинг состояния водных ресурсов</p>
           </div>
         </div>
+
+        {/* Error notification */}
+        {error && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="bg-white border-b border-gray-200 px-4 py-6">
+            <p className="text-gray-600">Загрузка данных...</p>
+          </div>
+        )}
 
         {/* Stats Bar */}
         <div className="bg-white border-b border-gray-200">

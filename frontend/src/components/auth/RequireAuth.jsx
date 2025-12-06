@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 const RequireAuth = ({ allowedRoles = [] }) => {
-  const { isAuthenticated, userRole, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   // Показываем загрузку пока проверяем аутентификацию
@@ -20,12 +20,12 @@ const RequireAuth = ({ allowedRoles = [] }) => {
   }
 
   // Если не аутентифицирован, перенаправляем на страницу входа
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Если роль не разрешена, перенаправляем на главную
-  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 

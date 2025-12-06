@@ -1,33 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
-import { User, Mail, Phone, Building, MapPin, Calendar, Save } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Loader2, AlertCircle } from 'lucide-react';
+import { getUserFromStorage } from '../../contexts/AuthContext';
+import { getUserProfile, updateUserProfile } from '../../services/userService';
 
 const ExpertProfilePage = () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+
   const [formData, setFormData] = useState({
-    firstName: 'Иван',
-    lastName: 'Петров',
-    email: 'ivan.petrov@expert.kz',
-    phone: '+7 (777) 123-45-67',
-    organization: 'Институт водных ресурсов РК',
-    position: 'Старший эксперт',
-    department: 'Отдел мониторинга',
-    region: 'Алматинская область',
-    specialization: 'Гидротехнические сооружения',
-    experience: '12 лет'
+    full_name: '',
+    email: '',
+    phone: '',
+    address: ''
   });
 
   const [activeTab, setActiveTab] = useState('profile'); // profile, security
 
+  // Загрузка данных профиля при монтировании компонента
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const currentUser = getUserFromStorage();
+      console.log('Current user from localStorage:', currentUser);
+
+      if (!currentUser) {
+        setError('Пользователь не авторизован');
+        return;
+      }
+
+      const userId = currentUser.id;
+      console.log('User ID:', userId);
+
+      if (!userId) {
+        setError('ID пользователя не найден');
+        return;
+      }
+
+      const response = await getUserProfile(userId);
+
+      if (response.success && response.data) {
+        setFormData({
+          full_name: response.data.full_name || '',
+          email: response.data.email || '',
+          phone: response.data.phone || '',
+          address: response.data.address || ''
+        });
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки профиля:', err);
+      setError(err.message || 'Не удалось загрузить профиль');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Сбрасываем сообщения при изменении
+    setSuccessMessage(null);
+    setError(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission
-    alert('Профиль обновлён!');
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      const currentUser = getUserFromStorage();
+      if (!currentUser || !currentUser.id) {
+        setError('Пользователь не авторизован');
+        return;
+      }
+
+      // Отправляем только измененные данные
+      const updateData = {
+        full_name: formData.full_name,
+        phone: formData.phone,
+        address: formData.address
+      };
+
+      const response = await updateUserProfile(currentUser.id, updateData);
+
+      if (response.success) {
+        setSuccessMessage('Профиль успешно обновлён!');
+        // Обновляем данные пользователя в localStorage
+        const updatedUser = { ...currentUser, ...response.data };
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+
+        // Автоматически скрываем сообщение через 3 секунды
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error('Ошибка обновления профиля:', err);
+      setError(err.message || 'Не удалось обновить профиль');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Показываем индикатор загрузки
+  if (loading) {
+    return (
+      <ExpertLayout>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Загрузка профиля...</p>
+          </div>
+        </div>
+      </ExpertLayout>
+    );
+  }
 
   return (
     <ExpertLayout>
@@ -41,13 +137,10 @@ const ExpertProfilePage = () => {
               </div>
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold">
-                  {formData.firstName} {formData.lastName}
+                  {formData.full_name || 'Эксперт'}
                 </h1>
                 <p className="text-sm lg:text-base text-blue-100 mt-1">
-                  {formData.position} • {formData.organization}
-                </p>
-                <p className="text-xs lg:text-sm text-blue-200 mt-1">
-                  Опыт: {formData.experience}
+                  {formData.email}
                 </p>
               </div>
             </div>
@@ -90,33 +183,38 @@ const ExpertProfilePage = () => {
                 Личная информация
               </h2>
 
+              {/* Сообщения об ошибках и успехе */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Ошибка</p>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">{successMessage}</p>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Name Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Имя
-                    </label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Фамилия
-                    </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <User className="w-4 h-4 inline mr-2" />
+                    ФИО
+                  </label>
+                  <input
+                    type="text"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Введите полное имя"
+                  />
                 </div>
 
                 {/* Contact Fields */}
@@ -130,9 +228,13 @@ const ExpertProfilePage = () => {
                       type="email"
                       name="email"
                       value={formData.email}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-gray-600"
+                      title="Email нельзя изменить"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Email нельзя изменить
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -145,104 +247,45 @@ const ExpertProfilePage = () => {
                       value={formData.phone}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="+7 (777) 123-45-67"
                     />
                   </div>
                 </div>
 
-                {/* Organization Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Building className="w-4 h-4 inline mr-2" />
-                      Организация
-                    </label>
-                    <input
-                      type="text"
-                      name="organization"
-                      value={formData.organization}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Должность
-                    </label>
-                    <input
-                      type="text"
-                      name="position"
-                      value={formData.position}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Отдел
-                    </label>
-                    <input
-                      type="text"
-                      name="department"
-                      value={formData.department}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <MapPin className="w-4 h-4 inline mr-2" />
-                      Регион
-                    </label>
-                    <input
-                      type="text"
-                      name="region"
-                      value={formData.region}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Specialization & Experience */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Специализация
-                    </label>
-                    <input
-                      type="text"
-                      name="specialization"
-                      value={formData.specialization}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Calendar className="w-4 h-4 inline mr-2" />
-                      Опыт работы
-                    </label>
-                    <input
-                      type="text"
-                      name="experience"
-                      value={formData.experience}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <MapPin className="w-4 h-4 inline mr-2" />
+                    Адрес
+                  </label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    rows="3"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Введите адрес"
+                  />
                 </div>
 
                 {/* Submit Button */}
                 <div className="pt-4">
                   <button
                     type="submit"
-                    className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                    disabled={saving}
+                    className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Save className="w-5 h-5" />
-                    <span>Сохранить изменения</span>
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Сохранение...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        <span>Сохранить изменения</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

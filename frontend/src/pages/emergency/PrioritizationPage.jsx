@@ -1,62 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Search, Filter, Download, TrendingUp, AlertTriangle, Calendar, Info } from 'lucide-react';
+import { getInspectionPriorities } from '../../services/priorityService';
 
 const PrioritizationPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [sortBy, setSortBy] = useState('priority_desc');
+  const [objects, setObjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState({ total: 0, high: 0, medium: 0, low: 0 });
 
-  const calculatePriority = (condition, passportYear) => {
-    const currentYear = new Date().getFullYear();
-    const passportAge = currentYear - passportYear;
-    const score = (6 - condition) * 3 + passportAge;
-    
-    let level;
-    if (score >= 12) level = 'high';
-    else if (score >= 6) level = 'medium';
-    else level = 'low';
-    
-    return { score, level, passportAge };
-  };
+  // Загрузка данных из API
+  useEffect(() => {
+    const fetchPriorities = async () => {
+      try {
+        setLoading(true);
+        const params = {
+          region: selectedRegion,
+          priority: selectedPriority,
+          sortBy: sortBy
+        };
 
-  const objects = [
-    { id: 1, name: 'Каратомарская плотина', type: 'Плотина', region: 'Алматинская область', technicalCondition: 5, passportYear: 2010, waterBody: 'Река Каратомар', lastInspection: '2024-12-01', issues: 8, riskLevel: 'high' },
-    { id: 2, name: 'Усть-Каменогорская ГЭС', type: 'ГЭС', region: 'Восточно-Казахстанская область', technicalCondition: 4, passportYear: 2015, waterBody: 'Река Иртыш', lastInspection: '2024-08-05', issues: 5, riskLevel: 'high' },
-    { id: 3, name: 'Река Иртыш (участок Павлодар)', type: 'Река', region: 'Павлодарская область', technicalCondition: 4, passportYear: 2016, waterBody: 'Река Иртыш', lastInspection: '2024-11-20', issues: 4, riskLevel: 'high' },
-    { id: 4, name: 'Бухтарминская ГЭС', type: 'ГЭС', region: 'Восточно-Казахстанская область', technicalCondition: 3, passportYear: 2012, waterBody: 'Река Иртыш', lastInspection: '2024-10-15', issues: 2, riskLevel: 'medium' },
-    { id: 5, name: 'Шульбинская ГЭС', type: 'ГЭС', region: 'Восточно-Казахстанская область', technicalCondition: 3, passportYear: 2013, waterBody: 'Река Иртыш', lastInspection: '2024-09-10', issues: 3, riskLevel: 'medium' },
-    { id: 6, name: 'Озеро Балхаш', type: 'Озеро', region: 'Алматинская область', technicalCondition: 3, passportYear: 2018, waterBody: 'Озеро Балхаш', lastInspection: '2024-11-01', issues: 1, riskLevel: 'medium' },
-    { id: 7, name: 'Капшагайская ГЭС', type: 'ГЭС', region: 'Алматинская область', technicalCondition: 2, passportYear: 2019, waterBody: 'Река Или', lastInspection: '2024-11-20', issues: 0, riskLevel: 'low' },
-    { id: 8, name: 'Сергеевское водохранилище', type: 'Водохранилище', region: 'Северо-Казахстанская область', technicalCondition: 2, passportYear: 2020, waterBody: 'Река Ишим', lastInspection: '2024-11-01', issues: 1, riskLevel: 'low' },
-    { id: 9, name: 'Река Урал (участок Уральск)', type: 'Река', region: 'Западно-Казахстанская область', technicalCondition: 3, passportYear: 2017, waterBody: 'Река Урал', lastInspection: '2024-10-20', issues: 2, riskLevel: 'medium' },
-    { id: 10, name: 'Озеро Зайсан', type: 'Озеро', region: 'Восточно-Казахстанская область', technicalCondition: 2, passportYear: 2021, waterBody: 'Озеро Зайсан', lastInspection: '2024-11-15', issues: 0, riskLevel: 'low' }
-  ];
+        const response = await getInspectionPriorities(params);
 
-  const objectsWithPriority = objects.map(obj => ({
-    ...obj,
-    priority: calculatePriority(obj.technicalCondition, obj.passportYear)
-  }));
-
-  const filteredObjects = objectsWithPriority
-    .filter(obj => {
-      const matchesSearch = obj.name.toLowerCase().includes(searchQuery.toLowerCase()) || obj.region.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRegion = selectedRegion === 'all' || obj.region === selectedRegion;
-      const matchesPriority = selectedPriority === 'all' || obj.priority.level === selectedPriority;
-      return matchesSearch && matchesRegion && matchesPriority;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'priority_desc': return b.priority.score - a.priority.score;
-        case 'priority_asc': return a.priority.score - b.priority.score;
-        case 'condition_desc': return b.technicalCondition - a.technicalCondition;
-        case 'condition_asc': return a.technicalCondition - b.technicalCondition;
-        case 'passport_old': return a.passportYear - b.passportYear;
-        case 'passport_new': return b.passportYear - a.passportYear;
-        default: return b.priority.score - a.priority.score;
+        if (response.success) {
+          setObjects(response.data || []);
+          setStats(response.stats || { total: 0, high: 0, medium: 0, low: 0 });
+        }
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch priorities:', err);
+        setError(err.message);
+        setObjects([]);
+      } finally {
+        setLoading(false);
       }
-    });
+    };
+
+    fetchPriorities();
+  }, [selectedRegion, selectedPriority, sortBy]);
+
+  // Фильтрация по поисковому запросу (на клиенте)
+  const filteredObjects = objects.filter(obj => {
+    const matchesSearch = obj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         obj.region.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
 
   const regions = ['Все регионы', 'Алматинская область', 'Восточно-Казахстанская область', 'Павлодарская область', 'Западно-Казахстанская область', 'Северо-Казахстанская область'];
 
@@ -73,13 +65,6 @@ const PrioritizationPage = () => {
     if (condition >= 4) return 'text-red-600';
     if (condition === 3) return 'text-yellow-600';
     return 'text-green-600';
-  };
-
-  const stats = {
-    total: filteredObjects.length,
-    high: filteredObjects.filter(o => o.priority.level === 'high').length,
-    medium: filteredObjects.filter(o => o.priority.level === 'medium').length,
-    low: filteredObjects.filter(o => o.priority.level === 'low').length
   };
 
   return (
@@ -249,69 +234,90 @@ const PrioritizationPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredObjects.map((obj, idx) => (
-                    <tr key={obj.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${obj.priority.level === 'high' ? 'bg-red-50/30' : ''}`}>
-                      <td className="py-4 px-4">
-                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-white ${idx < 3 ? 'bg-gradient-to-br from-red-500 to-orange-500' : 'bg-gray-400'}`}>
-                          {idx + 1}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div>
-                          <p className="font-semibold text-gray-900 mb-1">{obj.name}</p>
-                          <p className="text-xs text-gray-600">{obj.region}</p>
-                          <p className="text-xs text-gray-500">{obj.type} • {obj.waterBody}</p>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="8" className="py-12 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mb-4"></div>
+                          <p className="text-gray-600">Загрузка данных...</p>
                         </div>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className={`inline-flex items-center justify-center w-12 h-12 rounded-lg font-bold text-2xl ${getConditionColor(obj.technicalCondition)}`}>
-                          {obj.technicalCondition}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <p className="text-sm font-medium text-gray-900">{obj.passportYear}</p>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className="inline-flex items-center justify-center px-3 py-1 bg-gray-100 rounded-lg">
-                          <p className="text-lg font-bold text-gray-900">{obj.priority.passportAge}</p>
-                          <p className="text-xs text-gray-600 ml-1">лет</p>
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <div className="flex items-center justify-center">
-                          <span className="text-2xl font-bold text-gray-900">{obj.priority.score}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          (6-{obj.technicalCondition})×3+{obj.priority.passportAge}
-                        </p>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold border-2 ${getPriorityColor(obj.priority.level)}`}>
-                          <span className={`w-2 h-2 rounded-full ${obj.priority.level === 'high' ? 'bg-red-500' : obj.priority.level === 'medium' ? 'bg-yellow-500' : 'bg-green-500'} mr-2`} />
-                          {obj.priority.level === 'high' ? 'Высокий' : obj.priority.level === 'medium' ? 'Средний' : 'Низкий'}
-                        </span>
-                        {obj.priority.level === 'high' && (
-                          <p className="text-xs text-red-600 font-semibold mt-2">⚠️ Требует обследования</p>
-                        )}
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
-                          Подробнее
-                        </button>
                       </td>
                     </tr>
-                  ))}
+                  ) : error ? (
+                    <tr>
+                      <td colSpan="8" className="py-12 text-center">
+                        <div className="text-red-600">
+                          <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
+                          <p className="font-semibold">Ошибка загрузки данных</p>
+                          <p className="text-sm text-gray-600 mt-2">{error}</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredObjects.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="py-12 text-center">
+                        <div className="text-6xl mb-4">🔍</div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Объекты не найдены</h3>
+                        <p className="text-gray-600">Попробуйте изменить параметры фильтров</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredObjects.map((obj, idx) => (
+                      <tr key={obj.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${obj.priorityLevel === 'high' ? 'bg-red-50/30' : ''}`}>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-white ${idx < 3 ? 'bg-gradient-to-br from-red-500 to-orange-500' : 'bg-gray-400'}`}>
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div>
+                            <p className="font-semibold text-gray-900 mb-1">{obj.name}</p>
+                            <p className="text-xs text-gray-600">{obj.region}</p>
+                            <p className="text-xs text-gray-500">{obj.type} • {obj.waterBody}</p>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className={`inline-flex items-center justify-center w-12 h-12 rounded-lg font-bold text-2xl ${getConditionColor(obj.technicalCondition)}`}>
+                            {obj.technicalCondition}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <p className="text-sm font-medium text-gray-900">{obj.passportYear}</p>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="inline-flex items-center justify-center px-3 py-1 bg-gray-100 rounded-lg">
+                            <p className="text-lg font-bold text-gray-900">{obj.passportAge}</p>
+                            <p className="text-xs text-gray-600 ml-1">лет</p>
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex items-center justify-center">
+                            <span className="text-2xl font-bold text-gray-900">{obj.priorityScore}</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            (6-{obj.technicalCondition})×3+{obj.passportAge}
+                          </p>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold border-2 ${getPriorityColor(obj.priorityLevel)}`}>
+                            <span className={`w-2 h-2 rounded-full ${obj.priorityLevel === 'high' ? 'bg-red-500' : obj.priorityLevel === 'medium' ? 'bg-yellow-500' : 'bg-green-500'} mr-2`} />
+                            {obj.priorityLevel === 'high' ? 'Высокий' : obj.priorityLevel === 'medium' ? 'Средний' : 'Низкий'}
+                          </span>
+                          {obj.priorityLevel === 'high' && (
+                            <p className="text-xs text-red-600 font-semibold mt-2">⚠️ Требует обследования</p>
+                          )}
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
+                            Подробнее
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
-
-            {filteredObjects.length === 0 && (
-              <div className="py-12 text-center">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Объекты не найдены</h3>
-                <p className="text-gray-600">Попробуйте изменить параметры фильтров</p>
-              </div>
-            )}
           </div>
         </div>
       </div>

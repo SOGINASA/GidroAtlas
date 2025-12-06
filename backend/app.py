@@ -43,13 +43,19 @@ def create_app():
         auth_bp,
         users_bp,
         sensor_bp,
-        evacuations_bp
+        evacuations_bp,
+        facilities_bp,
+        notifications_bp,
+        reports_bp,
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(sensor_bp, url_prefix='/api/sensors')
     app.register_blueprint(evacuations_bp, url_prefix='/api/evacuations')
+    app.register_blueprint(facilities_bp, url_prefix='/api/facilities')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(reports_bp, url_prefix='/api/reports')
 
     # Главная страница API
     @app.route('/api')
@@ -73,6 +79,14 @@ def create_app():
                     'update': 'PUT /api/sensors/:id (admin/mchs)',
                     'delete': 'DELETE /api/sensors/:id (admin)',
                 }}
+                ,
+                'facilities': {
+                    'get_all': 'GET /api/facilities',
+                    'get_by_id': 'GET /api/facilities/:id',
+                    'create': 'POST /api/facilities (admin/mchs)',
+                    'update': 'PUT /api/facilities/:id (admin/mchs)',
+                    'delete': 'DELETE /api/facilities/:id (admin)'
+                }
         })
 
     return app

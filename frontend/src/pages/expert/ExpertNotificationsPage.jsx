@@ -1,82 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { Bell, AlertTriangle, Info, CheckCircle, Trash2, Check } from 'lucide-react';
+import {
+  getAllNotifications,
+  markAsRead as markNotificationAsRead,
+  markAllAsRead as markAllNotificationsAsRead,
+  deleteNotification
+} from '../../services/notificationService';
 
 const ExpertNotificationsPage = () => {
   const [filter, setFilter] = useState('all'); // all, unread, read
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Mock notifications
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'Критический уровень воды',
-      message: 'Река Иртыш достигла критического уровня 6.2м. Рекомендуется эвакуация прибрежных зон.',
-      priority: 'critical',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      read: false
-    },
-    {
-      id: 2,
-      title: 'Обновление прогноза',
-      message: 'AI модель обновила прогноз паводка для Алматинской области. Пик ожидается через 48 часов.',
-      priority: 'high',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      read: false
-    },
-    {
-      id: 3,
-      title: 'Плановое обследование',
-      message: 'Запланировано обследование ГТС "Капшагайская ГЭС" на 15.12.2024',
-      priority: 'medium',
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      read: true
-    },
-    {
-      id: 4,
-      title: 'Данные датчиков обновлены',
-      message: 'Получены новые данные от 12 датчиков. Все показатели в норме.',
-      priority: 'low',
-      timestamp: new Date(Date.now() - 172800000).toISOString(),
-      read: true
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllNotifications({ limit: 100 });
+      const notifs = response.data || [];
+
+      setNotifications(notifs);
+      setUnreadCount(response.unreadCount || notifs.filter(n => !n.read && !n.is_read).length);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      // Если не авторизован, показываем пустой список
+      setNotifications([]);
+      setUnreadCount(0);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const filteredNotifications = notifications.filter(notif => {
-    if (filter === 'unread') return !notif.read;
-    if (filter === 'read') return notif.read;
+    if (filter === 'unread') return !notif.read && !notif.is_read;
+    if (filter === 'read') return notif.read || notif.is_read;
     return true;
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-
   const getPriorityColor = (priority) => {
-    switch (priority) {
+    const type = priority || 'info';
+    switch (type) {
+      case 'danger':
       case 'critical': return 'bg-red-500';
+      case 'warning':
       case 'high': return 'bg-orange-500';
+      case 'evacuation':
       case 'medium': return 'bg-yellow-500';
+      case 'sensor_update':
+        return 'bg-purple-500';
       default: return 'bg-blue-500';
     }
   };
 
   const getPriorityIcon = (priority) => {
-    if (priority === 'critical' || priority === 'high') {
+    const type = priority || 'info';
+    if (type === 'danger' || type === 'critical' || type === 'warning' || type === 'evacuation') {
       return <AlertTriangle className="w-5 h-5" />;
     }
     return <Info className="w-5 h-5" />;
   };
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const markAsRead = async (id) => {
+    try {
+      await markNotificationAsRead(id);
+      setNotifications(notifications.map(n =>
+        n.id === id ? { ...n, read: true, is_read: true } : n
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const removeNotification = (id) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+  const removeNotification = async (id) => {
+    try {
+      await deleteNotification(id);
+      const notification = notifications.find(n => n.id === id);
+      setNotifications(notifications.filter(n => n.id !== id));
+      if (notification && !notification.read && !notification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications(notifications.map(n => ({ ...n, read: true, is_read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
   return (
@@ -111,8 +132,17 @@ const ExpertNotificationsPage = () => {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
-          
+
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка уведомлений...</p>
+            </div>
+          )}
+
           {/* Filters */}
+          {!loading && (
           <div className="bg-white rounded-xl lg:rounded-2xl shadow-sm p-4 lg:p-6 border border-gray-100">
             <div className="flex flex-wrap gap-2">
               <button
@@ -147,8 +177,10 @@ const ExpertNotificationsPage = () => {
               </button>
             </div>
           </div>
+          )}
 
           {/* Notifications List */}
+          {!loading && (
           <div className="space-y-3">
             {filteredNotifications.length === 0 ? (
               <div className="bg-white rounded-xl lg:rounded-2xl shadow-sm p-12 text-center border border-gray-100">
@@ -228,6 +260,7 @@ const ExpertNotificationsPage = () => {
               ))
             )}
           </div>
+          )}
         </div>
       </div>
     </ExpertLayout>

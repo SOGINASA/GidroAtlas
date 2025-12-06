@@ -1,63 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { Brain, TrendingUp, TrendingDown, AlertTriangle, Calendar } from 'lucide-react';
+import { getPredictions } from '../../services/predictionService';
+import { getCriticalSensors } from '../../services/sensorService';
 
 const ExpertPredictionsPage = () => {
   const [timeRange, setTimeRange] = useState('week'); // day, week, month
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    high: 0,
+    medium: 0,
+    low: 0
+  });
 
-  // Mock predictions
-  const predictions = [
-    {
-      id: 1,
-      objectName: 'Река Иртыш',
-      type: 'water_level',
-      currentValue: 5.8,
-      predictedValue: 6.4,
-      trend: 'rising',
-      confidence: 87,
-      riskLevel: 'high',
-      timeframe: '24-48 часов',
-      factors: ['Таяние снега', 'Осадки выше нормы', 'Сброс воды с ГЭС'],
-      recommendations: [
-        'Провести эвакуацию прибрежных зон',
-        'Усилить мониторинг датчиков',
-        'Подготовить аварийные службы'
-      ]
-    },
-    {
-      id: 2,
-      objectName: 'Капшагайская ГЭС',
-      type: 'maintenance',
-      currentValue: 'Удовлетворительное',
-      predictedValue: 'Требует обследования',
-      trend: 'stable',
-      confidence: 72,
-      riskLevel: 'medium',
-      timeframe: '3-6 месяцев',
-      factors: ['Возраст сооружения', 'Износ оборудования', 'История эксплуатации'],
-      recommendations: [
-        'Запланировать техническое обследование',
-        'Провести диагностику турбин',
-        'Обновить план ТО'
-      ]
-    },
-    {
-      id: 3,
-      objectName: 'Озеро Балхаш',
-      type: 'quality',
-      currentValue: 'Хорошее',
-      predictedValue: 'Хорошее',
-      trend: 'stable',
-      confidence: 94,
-      riskLevel: 'low',
-      timeframe: '1-2 месяца',
-      factors: ['Стабильные метео условия', 'Нормальный уровень воды'],
-      recommendations: [
-        'Продолжить плановый мониторинг',
-        'Сохранить текущий режим наблюдений'
-      ]
+  useEffect(() => {
+    loadPredictions();
+  }, []);
+
+  const loadPredictions = async () => {
+    try {
+      setLoading(true);
+
+      // Загружаем прогнозы на основе критических датчиков
+      const predictionsData = await getPredictions();
+
+      // Дополняем данные из критических датчиков
+      const criticalSensorsResponse = await getCriticalSensors();
+      const criticalSensors = criticalSensorsResponse.data || [];
+
+      // Формируем детальные прогнозы
+      const enrichedPredictions = criticalSensors.map(sensor => {
+        const waterLevel = sensor.waterLevel || 0;
+        const dangerLevel = sensor.dangerLevel || 'safe';
+        const isRising = waterLevel > 5.0;
+
+        return {
+          id: sensor.id,
+          objectName: sensor.name,
+          location: sensor.location,
+          type: 'water_level',
+          currentValue: `${waterLevel.toFixed(1)} м`,
+          predictedValue: `${(waterLevel + (isRising ? 0.6 : -0.2)).toFixed(1)} м`,
+          trend: isRising ? 'rising' : 'stable',
+          confidence: dangerLevel === 'critical' ? 87 : dangerLevel === 'danger' ? 75 : 94,
+          riskLevel: dangerLevel === 'critical' ? 'high' : dangerLevel === 'danger' ? 'medium' : 'low',
+          timeframe: dangerLevel === 'critical' ? '24-48 часов' : dangerLevel === 'danger' ? '2-3 дня' : '1-2 недели',
+          factors: dangerLevel === 'critical'
+            ? ['Критический уровень воды', 'Риск затопления', 'Требуется немедленное вмешательство']
+            : dangerLevel === 'danger'
+            ? ['Повышенный уровень воды', 'Необходим мониторинг', 'Возможны изменения']
+            : ['Стабильный уровень воды', 'Нормальные условия'],
+          recommendations: dangerLevel === 'critical'
+            ? [
+                'Срочно провести эвакуацию прибрежных зон',
+                'Активировать аварийные службы',
+                'Усилить мониторинг датчиков'
+              ]
+            : dangerLevel === 'danger'
+            ? [
+                'Подготовить план эвакуации',
+                'Предупредить население',
+                'Усилить наблюдение'
+              ]
+            : [
+                'Продолжить плановый мониторинг',
+                'Сохранить текущий режим наблюдений'
+              ]
+        };
+      });
+
+      setPredictions(enrichedPredictions);
+
+      // Подсчет статистики
+      const newStats = enrichedPredictions.reduce((acc, pred) => {
+        if (pred.riskLevel === 'high') acc.high++;
+        else if (pred.riskLevel === 'medium') acc.medium++;
+        else acc.low++;
+        return acc;
+      }, { high: 0, medium: 0, low: 0 });
+
+      setStats(newStats);
+
+    } catch (error) {
+      console.error('Error loading predictions:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getRiskColor = (level) => {
     switch (level) {
@@ -140,21 +170,31 @@ const ExpertPredictionsPage = () => {
             </div>
           </div>
 
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Загрузка прогнозов...</p>
+            </div>
+          )}
+
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
-              <p className="text-sm text-gray-600 mb-1">Высокий риск</p>
-              <p className="text-3xl font-bold text-red-600">1</p>
+          {!loading && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
+                <p className="text-sm text-gray-600 mb-1">Высокий риск</p>
+                <p className="text-3xl font-bold text-red-600">{stats.high}</p>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
+                <p className="text-sm text-gray-600 mb-1">Средний риск</p>
+                <p className="text-3xl font-bold text-orange-600">{stats.medium}</p>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
+                <p className="text-sm text-gray-600 mb-1">Низкий риск</p>
+                <p className="text-3xl font-bold text-green-600">{stats.low}</p>
+              </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
-              <p className="text-sm text-gray-600 mb-1">Средний риск</p>
-              <p className="text-3xl font-bold text-orange-600">1</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6 border border-gray-100">
-              <p className="text-sm text-gray-600 mb-1">Низкий риск</p>
-              <p className="text-3xl font-bold text-green-600">1</p>
-            </div>
-          </div>
+          )}
 
           {/* Predictions List */}
           <div className="space-y-4">

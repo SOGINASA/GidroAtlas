@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
-import { useAuth } from '../../contexts/AuthContext';
-import { User, Mail, Phone, Building, Shield, Key, Bell, Globe, Save } from 'lucide-react';
+import { User, Mail, Phone, Building, Shield, Key, Bell, Globe, Save, Loader2, AlertCircle } from 'lucide-react';
+import { getUserFromStorage } from '../../contexts/AuthContext';
+import { getUserProfile, updateUserProfile } from '../../services/userService';
 
 const EmergencyProfile = () => {
-  const { user } = useAuth();
-  
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+
   const [profileData, setProfileData] = useState({
-    firstName: user?.name?.split(' ')[0] || 'Иван',
-    lastName: user?.name?.split(' ')[1] || 'Иванов',
-    email: user?.email || 'ivanov@mchs.kz',
-    phone: '+7 (701) 234-56-78',
-    organization: 'МЧС Казахстана',
-    position: 'Оперативный дежурный',
-    department: 'Центр управления',
-    region: 'Павлодарская область',
-    employeeId: 'MChS-2024-0156',
-    certifications: ['Управление ЧС', 'Эвакуация', 'Первая помощь']
+    full_name: '',
+    email: '',
+    phone: '',
+    address: ''
   });
 
   const [settings, setSettings] = useState({
@@ -33,9 +31,84 @@ const EmergencyProfile = () => {
 
   const [activeTab, setActiveTab] = useState('profile');
 
-  const handleSaveProfile = (e) => {
+  // Загрузка данных профиля при монтировании
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const currentUser = getUserFromStorage();
+      console.log('Current user from localStorage:', currentUser);
+
+      if (!currentUser) {
+        setError('Пользователь не авторизован');
+        return;
+      }
+
+      const userId = currentUser.id;
+      console.log('User ID:', userId);
+
+      if (!userId) {
+        setError('ID пользователя не найден');
+        return;
+      }
+
+      const response = await getUserProfile(userId);
+
+      if (response.success && response.data) {
+        setProfileData({
+          full_name: response.data.full_name || '',
+          email: response.data.email || '',
+          phone: response.data.phone || '',
+          address: response.data.address || ''
+        });
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки профиля:', err);
+      setError(err.message || 'Не удалось загрузить профиль');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    alert('Профиль сохранён!');
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      const currentUser = getUserFromStorage();
+      if (!currentUser || !currentUser.id) {
+        setError('Пользователь не авторизован');
+        return;
+      }
+
+      const updateData = {
+        full_name: profileData.full_name,
+        phone: profileData.phone,
+        address: profileData.address
+      };
+
+      const response = await updateUserProfile(currentUser.id, updateData);
+
+      if (response.success) {
+        setSuccessMessage('Профиль успешно обновлён!');
+        const updatedUser = { ...currentUser, ...response.data };
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error('Ошибка обновления профиля:', err);
+      setError(err.message || 'Не удалось обновить профиль');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveSettings = (e) => {
@@ -50,6 +123,20 @@ const EmergencyProfile = () => {
     { action: 'Обновлены данные объекта', location: 'Бухтарминская ГЭС', time: '2 дня назад' }
   ];
 
+  // Показываем индикатор загрузки
+  if (loading) {
+    return (
+      <EmergencyLayout>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-red-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Загрузка профиля...</p>
+          </div>
+        </div>
+      </EmergencyLayout>
+    );
+  }
+
   return (
     <EmergencyLayout>
       <div className="min-h-screen bg-gray-50">
@@ -58,11 +145,11 @@ const EmergencyProfile = () => {
           <div className="container mx-auto px-4 py-6">
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-4xl">
-                👤
+                <User className="w-10 h-10" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">{profileData.firstName} {profileData.lastName}</h1>
-                <p className="text-red-100">{profileData.position} • {profileData.department}</p>
+                <h1 className="text-3xl font-bold">{profileData.full_name || 'Сотрудник МЧС'}</h1>
+                <p className="text-red-100">{profileData.email}</p>
               </div>
             </div>
           </div>
@@ -74,7 +161,7 @@ const EmergencyProfile = () => {
             
             {/* Left Sidebar - Quick Info */}
             <div className="lg:col-span-1 space-y-6">
-              
+
               {/* Role Card */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <div className="flex items-center space-x-3 mb-4">
@@ -87,27 +174,22 @@ const EmergencyProfile = () => {
                     <p className="font-semibold text-red-600">МЧС / Emergency</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">ID сотрудника:</p>
-                    <p className="font-semibold">{profileData.employeeId}</p>
+                    <p className="text-gray-600">Email:</p>
+                    <p className="font-semibold">{profileData.email}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Регион:</p>
-                    <p className="font-semibold">{profileData.region}</p>
+                    <p className="text-gray-600">Телефон:</p>
+                    <p className="font-semibold">{profileData.phone || 'Не указан'}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Certifications */}
+              {/* Contact Info */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <h3 className="font-bold text-lg mb-4">Сертификации</h3>
-                <div className="space-y-2">
-                  {profileData.certifications.map((cert, idx) => (
-                    <div key={idx} className="flex items-center space-x-2 bg-green-50 border border-green-200 rounded-lg p-3">
-                      <span className="text-green-600">✓</span>
-                      <span className="text-sm font-medium">{cert}</span>
-                    </div>
-                  ))}
-                </div>
+                <h3 className="font-bold text-lg mb-4">Адрес</h3>
+                <p className="text-sm text-gray-700">
+                  {profileData.address || 'Адрес не указан'}
+                </p>
               </div>
 
               {/* Activity Log */}
@@ -162,121 +244,117 @@ const EmergencyProfile = () => {
                   {/* Profile Tab */}
                   {activeTab === 'profile' && (
                     <form onSubmit={handleSaveProfile} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
+
+                      {/* Сообщения об ошибках и успехе */}
+                      {error && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-red-800">Ошибка</p>
+                            <p className="text-sm text-red-700 mt-1">{error}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {successMessage && (
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-800 font-medium">{successMessage}</p>
+                        </div>
+                      )}
+
+                      <div className="space-y-6">
+                        {/* Full Name */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             <User className="w-4 h-4 inline mr-2" />
-                            Имя
+                            ФИО
                           </label>
                           <input
                             type="text"
-                            value={profileData.firstName}
-                            onChange={(e) => setProfileData({...profileData, firstName: e.target.value})}
+                            value={profileData.full_name}
+                            onChange={(e) => {
+                              setProfileData({...profileData, full_name: e.target.value});
+                              setError(null);
+                              setSuccessMessage(null);
+                            }}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                            placeholder="Введите полное имя"
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <User className="w-4 h-4 inline mr-2" />
-                            Фамилия
-                          </label>
-                          <input
-                            type="text"
-                            value={profileData.lastName}
-                            onChange={(e) => setProfileData({...profileData, lastName: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Email */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              <Mail className="w-4 h-4 inline mr-2" />
+                              Email
+                            </label>
+                            <input
+                              type="email"
+                              value={profileData.email}
+                              disabled
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-gray-600"
+                              title="Email нельзя изменить"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Email нельзя изменить</p>
+                          </div>
+
+                          {/* Phone */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              <Phone className="w-4 h-4 inline mr-2" />
+                              Телефон
+                            </label>
+                            <input
+                              type="tel"
+                              value={profileData.phone}
+                              onChange={(e) => {
+                                setProfileData({...profileData, phone: e.target.value});
+                                setError(null);
+                                setSuccessMessage(null);
+                              }}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                              placeholder="+7 (777) 123-45-67"
+                            />
+                          </div>
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Mail className="w-4 h-4 inline mr-2" />
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            value={profileData.email}
-                            onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Phone className="w-4 h-4 inline mr-2" />
-                            Телефон
-                          </label>
-                          <input
-                            type="tel"
-                            value={profileData.phone}
-                            onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-
+                        {/* Address */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Building className="w-4 h-4 inline mr-2" />
-                            Организация
+                            Адрес
                           </label>
-                          <input
-                            type="text"
-                            value={profileData.organization}
-                            onChange={(e) => setProfileData({...profileData, organization: e.target.value})}
+                          <textarea
+                            value={profileData.address}
+                            onChange={(e) => {
+                              setProfileData({...profileData, address: e.target.value});
+                              setError(null);
+                              setSuccessMessage(null);
+                            }}
+                            rows="3"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                            placeholder="Введите адрес"
                           />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Должность
-                          </label>
-                          <input
-                            type="text"
-                            value={profileData.position}
-                            onChange={(e) => setProfileData({...profileData, position: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Отдел
-                          </label>
-                          <input
-                            type="text"
-                            value={profileData.department}
-                            onChange={(e) => setProfileData({...profileData, department: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Регион
-                          </label>
-                          <select
-                            value={profileData.region}
-                            onChange={(e) => setProfileData({...profileData, region: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          >
-                            <option>Алматинская область</option>
-                            <option>Павлодарская область</option>
-                            <option>ВКО</option>
-                            <option>ЗКО</option>
-                            <option>СКО</option>
-                          </select>
                         </div>
                       </div>
 
                       <button
                         type="submit"
-                        className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                        disabled={saving}
+                        className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Save className="w-5 h-5" />
-                        <span>Сохранить изменения</span>
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <span>Сохранение...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5" />
+                            <span>Сохранить изменения</span>
+                          </>
+                        )}
                       </button>
                     </form>
                   )}

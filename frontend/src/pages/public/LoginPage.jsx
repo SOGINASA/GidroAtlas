@@ -82,10 +82,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      // Имитация задержки API
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Mock валидация (в реальности будет API запрос)
+      // Basic validation
       if (!email || !password) {
         throw new Error('Заполните все поля');
       }
@@ -94,20 +91,12 @@ const LoginPage = () => {
         throw new Error('Пароль должен содержать минимум 6 символов');
       }
 
-      // Mock пользователь
-      const mockUser = {
-        id: Date.now(),
-        email: email,
-        name: email.split('@')[0],
-        role: selectedRole
-      };
+      // Call real backend login via useAuth hook
+      await login(email, password);
 
-      // Логиним через контекст
-      login(mockUser, selectedRole);
-
-      // Редирект на нужную страницу
+      // redirect based on role
       const roleData = userTypes.find(r => r.id === selectedRole);
-      navigate(roleData.route);
+      navigate(roleData?.route ?? '/');
 
     } catch (err) {
       setError(err.message || 'Ошибка входа');
@@ -116,19 +105,10 @@ const LoginPage = () => {
     }
   };
 
-  const handleQuickLogin = (role) => {
-    // Быстрый вход с демо данными
-    const mockUser = {
-      id: Date.now(),
-      email: `demo_${role}@gidroatlas.kz`,
-      name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-      role: role
-    };
-
-    login(mockUser, role);
-    
-    const roleData = userTypes.find(r => r.id === role);
-    navigate(roleData.route);
+  const handleQuickLogin = async (role) => {
+    // Quick demo login - removed mock, kept for future demo flows if needed
+    // For now: disabled to enforce real login flow
+    setError('Demo быстрый вход удален. Используйте полную форму входа.');
   };
 
   if (!selectedRole) {

@@ -3,6 +3,8 @@ from routes.sensor import sensor_bp
 from routes.users import users_bp
 from routes.notifications import notifications_bp
 from routes.evacuations import evacuations_bp
+from routes.facilities import facilities_bp
+from routes.reports import reports_bp
 
 
 __all__ = [
@@ -11,4 +13,6 @@ __all__ = [
     'users_bp',
     'notifications_bp',
     'evacuations_bp',
+    'facilities_bp',
+    'reports_bp',
 ]

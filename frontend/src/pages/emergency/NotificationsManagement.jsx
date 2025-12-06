@@ -1,70 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
-import { Bell, Send, Users, MapPin, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { Bell, Send, Users, MapPin, AlertTriangle, Clock, CheckCircle, Loader } from 'lucide-react';
+import { sendBroadcast, getUsersForNotification } from '../../services/notificationService';
 
 const EmergencyNotifications = () => {
   const [activeTab, setActiveTab] = useState('send');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [sentNotifications, setSentNotifications] = useState([]);
+  const [users, setUsers] = useState([]);
+  
   const [notificationForm, setNotificationForm] = useState({
     type: 'warning',
     title: '',
     message: '',
-    region: 'all',
-    targetGroup: 'all',
-    priority: 'medium'
+    roleFilter: 'all',
+    is_important: false
   });
 
-  const sentNotifications = [
-    {
-      id: 1,
-      title: 'Экстренное предупреждение: Иртыш',
-      message: 'Превышен критический уровень воды. Рекомендуется эвакуация.',
-      type: 'critical',
-      region: 'Павлодарская область',
-      recipients: 15000,
-      delivered: 14850,
-      sentAt: '2024-12-05 14:30',
-      status: 'delivered'
-    },
-    {
-      id: 2,
-      title: 'Предупреждение о подъёме уровня воды',
-      message: 'Ожидается повышение уровня воды в Реке Урал в течение 24 часов.',
-      type: 'warning',
-      region: 'Западно-Казахстанская область',
-      recipients: 8000,
-      delivered: 7920,
-      sentAt: '2024-12-05 12:15',
-      status: 'delivered'
-    },
-    {
-      id: 3,
-      title: 'Информация о плановом ремонте ГЭС',
-      message: 'Капшагайская ГЭС будет на плановом ремонте 10-12 декабря.',
-      type: 'info',
-      region: 'Алматинская область',
-      recipients: 5000,
-      delivered: 4980,
-      sentAt: '2024-12-05 10:00',
-      status: 'delivered'
-    },
-    {
-      id: 4,
-      title: 'Завершение эвакуации',
-      message: 'Эвакуация в населённом пункте Затобольск завершена успешно.',
-      type: 'success',
-      region: 'Северо-Казахстанская область',
-      recipients: 2500,
-      delivered: 2500,
-      sentAt: '2024-12-04 18:45',
-      status: 'delivered'
+  // Загрузка пользователей при монтировании
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const userData = await getUsersForNotification();
+      setUsers(userData);
+    } catch (err) {
+      console.error('Ошибка загрузки пользователей:', err);
     }
-  ];
+  };
 
   const templates = [
     {
       id: 1,
       name: 'Эвакуация - Начало',
-      type: 'critical',
+      type: 'danger',
       title: 'СРОЧНАЯ ЭВАКУАЦИЯ',
       message: 'Начата экстренная эвакуация в связи с повышением уровня воды. Следуйте указаниям служб МЧС. Пункты сбора: [АДРЕСА]'
     },
@@ -85,34 +58,86 @@ const EmergencyNotifications = () => {
     {
       id: 4,
       name: 'Отбой тревоги',
-      type: 'success',
+      type: 'info',
       title: 'Ситуация нормализована',
       message: 'Угроза миновала. Можно вернуться к обычной жизнедеятельности. Благодарим за понимание.'
     }
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Отправка уведомления:', notificationForm);
-    alert('Уведомление отправлено!');
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      if (!notificationForm.title || !notificationForm.message) {
+        setError('Пожалуйста, заполните заголовок и сообщение');
+        setLoading(false);
+        return;
+      }
+
+      const broadcastData = {
+        type: notificationForm.type,
+        title: notificationForm.title,
+        message: notificationForm.message,
+        role_filter: notificationForm.roleFilter,
+        is_important: notificationForm.is_important
+      };
+
+      const response = await sendBroadcast(broadcastData);
+
+      const newNotification = {
+        id: Date.now(),
+        title: notificationForm.title,
+        message: notificationForm.message,
+        type: notificationForm.type,
+        recipients: response.data.recipientsCount || 0,
+        delivered: response.data.recipientsCount || 0,
+        sentAt: new Date().toLocaleString('ru-RU'),
+        status: 'delivered',
+        is_important: notificationForm.is_important
+      };
+
+      setSentNotifications([newNotification, ...sentNotifications]);
+      setSuccess('Уведомление успешно отправлено!');
+      
+      // Очистка формы
+      setNotificationForm({
+        type: 'warning',
+        title: '',
+        message: '',
+        roleFilter: 'all',
+        is_important: false
+      });
+
+      // Переход на вкладку истории через 1 секунду
+      setTimeout(() => setActiveTab('history'), 1000);
+    } catch (err) {
+      setError(err.message || 'Ошибка при отправке уведомления');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getTypeColor = (type) => {
     switch (type) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
+      case 'danger': return 'bg-red-100 text-red-800 border-red-300';
       case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'info': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'success': return 'bg-green-100 text-green-800 border-green-300';
+      case 'evacuation': return 'bg-red-100 text-red-800 border-red-300';
+      case 'sensor_update': return 'bg-purple-100 text-purple-800 border-purple-300';
       default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
   const getTypeLabel = (type) => {
     switch (type) {
-      case 'critical': return 'Критическое';
+      case 'danger': return 'Опасность';
       case 'warning': return 'Предупреждение';
       case 'info': return 'Информация';
-      case 'success': return 'Успешно';
+      case 'evacuation': return 'Эвакуация';
+      case 'sensor_update': return 'Обновление датчика';
       default: return 'Обычное';
     }
   };
@@ -215,6 +240,19 @@ const EmergencyNotifications = () => {
 
             <div className="p-6">
               
+              {/* Error & Success Messages */}
+              {error && (
+                <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg border border-red-300">
+                  {error}
+                </div>
+              )}
+              
+              {success && (
+                <div className="mb-4 p-4 bg-green-100 text-green-800 rounded-lg border border-green-300">
+                  {success}
+                </div>
+              )}
+              
               {/* Send Form */}
               {activeTab === 'send' && (
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -230,29 +268,11 @@ const EmergencyNotifications = () => {
                         onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value})}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                       >
-                        <option value="critical">🚨 Критическое</option>
+                        <option value="danger">🚨 Опасность</option>
                         <option value="warning">⚠️ Предупреждение</option>
                         <option value="info">ℹ️ Информация</option>
-                        <option value="success">✅ Успешно</option>
-                      </select>
-                    </div>
-
-                    {/* Region */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Регион *
-                      </label>
-                      <select
-                        value={notificationForm.region}
-                        onChange={(e) => setNotificationForm({...notificationForm, region: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      >
-                        <option value="all">Вся страна</option>
-                        <option value="almaty">Алматинская область</option>
-                        <option value="pavlodar">Павлодарская область</option>
-                        <option value="vko">ВКО</option>
-                        <option value="zko">ЗКО</option>
-                        <option value="sko">СКО</option>
+                        <option value="evacuation">🚪 Эвакуация</option>
+                        <option value="sensor_update">📊 Обновление датчика</option>
                       </select>
                     </div>
 
@@ -262,31 +282,29 @@ const EmergencyNotifications = () => {
                         Целевая группа *
                       </label>
                       <select
-                        value={notificationForm.targetGroup}
-                        onChange={(e) => setNotificationForm({...notificationForm, targetGroup: e.target.value})}
+                        value={notificationForm.roleFilter}
+                        onChange={(e) => setNotificationForm({...notificationForm, roleFilter: e.target.value})}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                       >
-                        <option value="all">Все жители</option>
-                        <option value="zone">Только в зоне риска</option>
-                        <option value="registered">Зарегистрированные</option>
+                        <option value="all">Все пользователи</option>
+                        <option value="resident">Только жители</option>
+                        <option value="emergency">Только МЧС</option>
                       </select>
                     </div>
+                  </div>
 
-                    {/* Priority */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Приоритет доставки *
-                      </label>
-                      <select
-                        value={notificationForm.priority}
-                        onChange={(e) => setNotificationForm({...notificationForm, priority: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      >
-                        <option value="high">Высокий (немедленно)</option>
-                        <option value="medium">Средний (в течение 5 мин)</option>
-                        <option value="low">Низкий (в течение часа)</option>
-                      </select>
-                    </div>
+                  {/* Important Flag */}
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="important"
+                      checked={notificationForm.is_important}
+                      onChange={(e) => setNotificationForm({...notificationForm, is_important: e.target.checked})}
+                      className="w-5 h-5 border border-gray-300 rounded"
+                    />
+                    <label htmlFor="important" className="text-sm font-medium text-gray-700">
+                      ⭐ Отметить как важное
+                    </label>
                   </div>
 
                   {/* Title */}
@@ -318,7 +336,7 @@ const EmergencyNotifications = () => {
                       required
                     />
                     <p className="text-sm text-gray-500 mt-2">
-                      {notificationForm.message.length} / 500 символов
+                      {notificationForm.message.length} символов
                     </p>
                   </div>
 
@@ -326,16 +344,33 @@ const EmergencyNotifications = () => {
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       type="submit"
-                      className="flex-1 flex items-center justify-center space-x-2 px-6 py-4 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors"
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center space-x-2 px-6 py-4 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                      <Send className="w-5 h-5" />
-                      <span>Отправить уведомление</span>
+                      {loading ? (
+                        <>
+                          <Loader className="w-5 h-5 animate-spin" />
+                          <span>Отправка...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          <span>Отправить уведомление</span>
+                        </>
+                      )}
                     </button>
                     <button
                       type="button"
+                      onClick={() => setNotificationForm({
+                        type: 'warning',
+                        title: '',
+                        message: '',
+                        roleFilter: 'all',
+                        is_important: false
+                      })}
                       className="px-6 py-4 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                     >
-                      Предпросмотр
+                      Очистить
                     </button>
                   </div>
                 </form>
@@ -344,53 +379,57 @@ const EmergencyNotifications = () => {
               {/* History */}
               {activeTab === 'history' && (
                 <div className="space-y-4">
-                  {sentNotifications.map((notif) => (
-                    <div key={notif.id} className="border-2 rounded-xl p-6 hover:border-orange-300 transition-colors">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <span className={`px-3 py-1 rounded-full text-sm font-bold border-2 ${getTypeColor(notif.type)}`}>
-                              {getTypeLabel(notif.type)}
-                            </span>
-                            <span className="text-xs text-gray-500 flex items-center">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {notif.sentAt}
-                            </span>
-                          </div>
-                          <h3 className="text-xl font-bold text-gray-900 mb-2">{notif.title}</h3>
-                          <p className="text-gray-600 mb-3">{notif.message}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center">
-                              <MapPin className="w-4 h-4 mr-1" />
-                              {notif.region}
-                            </span>
-                            <span className="flex items-center">
-                              <Users className="w-4 h-4 mr-1" />
-                              {notif.recipients.toLocaleString()} получателей
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-600">Статус доставки</span>
-                          <span className="text-sm font-bold text-green-600">
-                            {Math.round((notif.delivered / notif.recipients) * 100)}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                          <div 
-                            className="bg-green-500 h-3 transition-all"
-                            style={{ width: `${(notif.delivered / notif.recipients) * 100}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Доставлено: {notif.delivered.toLocaleString()} из {notif.recipients.toLocaleString()}
-                        </p>
-                      </div>
+                  {sentNotifications.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Отправленных уведомлений нет</p>
                     </div>
-                  ))}
+                  ) : (
+                    sentNotifications.map((notif) => (
+                      <div key={notif.id} className="border-2 rounded-xl p-6 hover:border-orange-300 transition-colors">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <span className={`px-3 py-1 rounded-full text-sm font-bold border-2 ${getTypeColor(notif.type)}`}>
+                                {getTypeLabel(notif.type)}
+                              </span>
+                              {notif.is_important && <span className="text-lg">⭐</span>}
+                              <span className="text-xs text-gray-500 flex items-center">
+                                <Clock className="w-4 h-4 mr-1" />
+                                {notif.sentAt}
+                              </span>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">{notif.title}</h3>
+                            <p className="text-gray-600 mb-3">{notif.message}</p>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              <span className="flex items-center">
+                                <Users className="w-4 h-4 mr-1" />
+                                {notif.recipients.toLocaleString()} получателей
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-600">Статус доставки</span>
+                            <span className="text-sm font-bold text-green-600">
+                              {notif.recipients > 0 ? '100%' : '0%'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div 
+                              className="bg-green-500 h-3 transition-all"
+                              style={{ width: notif.recipients > 0 ? '100%' : '0%' }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Доставлено: {notif.delivered.toLocaleString()} из {notif.recipients.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 

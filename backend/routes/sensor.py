@@ -489,9 +489,17 @@ def create_risk_zone():
             id=data.get('id', f"zone-{int(datetime.utcnow().timestamp())}"),
             name=data['name'],
             type=data['type'],
+            location=data.get('location'),
+            region=data.get('region'),
             coordinates=data['coordinates'],
+            water_level=data.get('water_level', 0.0),
+            threshold=data.get('threshold', 0.0),
+            trend=data.get('trend', 'stable'),
             residents_count=data.get('residents_count', 0),
+            affected_population=data.get('affected_population', data.get('residents_count', 0)),
+            evacuated_count=data.get('evacuated_count', 0),
             related_sensor_ids=data.get('related_sensor_ids'),
+            status=data.get('status', 'monitoring'),
             description=data.get('description')
         )
 

@@ -166,16 +166,31 @@ class RiskZone(db.Model):
 
     id = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(200), nullable=False)
+
     type = db.Column(db.String(20), nullable=False)  # low, medium, high
+
+    # Читаемое местоположение/регион для UI
+    location = db.Column(db.String(255), nullable=True)
+    region = db.Column(db.String(150), nullable=True)
 
     # Координаты полигона (храним как JSON)
     coordinates = db.Column(db.JSON, nullable=False)
 
+    # Текущие вычисляемые/сохранённые показатели, необходимые для UI
+    water_level = db.Column(db.Float, default=0.0)
+    threshold = db.Column(db.Float, default=0.0)
+    trend = db.Column(db.String(20), default='stable')  # rising, stable, falling
+
     # Информация о населении
     residents_count = db.Column(db.Integer, default=0)
+    affected_population = db.Column(db.Integer, default=0)
+    evacuated_count = db.Column(db.Integer, default=0)
 
     # Связанные датчики (опционально)
     related_sensor_ids = db.Column(db.JSON, nullable=True)
+
+    # Статус зоны (monitoring, warning, critical)
+    status = db.Column(db.String(20), default='monitoring')
 
     # Метаданные
     description = db.Column(db.Text, nullable=True)
@@ -189,9 +204,17 @@ class RiskZone(db.Model):
             'id': self.id,
             'name': self.name,
             'type': self.type,
+            'location': self.location or self.name,
+            'region': self.region,
             'coordinates': self.coordinates,
+            'waterLevel': self.water_level,
+            'threshold': self.threshold,
+            'trend': self.trend,
+            'affectedPopulation': self.affected_population or self.residents_count,
             'residentsCount': self.residents_count,
-            'relatedSensors': self.related_sensor_ids,
+            'evacuated': self.evacuated_count,
+            'sensors': self.related_sensor_ids,
+            'status': self.status,
             'description': self.description
         }
 
@@ -301,4 +324,240 @@ class Evacuation(db.Model):
 
     def __repr__(self):
         return f'<Evacuation {self.id}: user={self.user_id} status={self.status}>'
+
+class HydroFacility(db.Model):
+    """Модель гидротехнического сооружения (ГТС) — соответствует UI страницы FacilitiesManagement
+    Поля отражают информацию в интерфейсе: название, тип (ГЭС/Плотина/Водохранилище), регион,
+    мощность/ёмкость, год постройки, статус, техническое состояние, риск-скор, даты инспекций,
+    количество проблем/алертов и доп.метаданные.
+    """
+    __tablename__ = 'hydro_facilities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False, index=True)
+    type = db.Column(db.String(50), nullable=False)  # ГЭС, Плотина, Водохранилище и т.п.
+    region = db.Column(db.String(150), nullable=True, index=True)
+
+    # Ёмкость / мощность (МВт или m3) — хранится числом, единицы описаны в документации/фронте
+    capacity = db.Column(db.Float, default=0.0)
+    year_built = db.Column(db.Integer, nullable=True)
+
+    # Связь с водным объектом
+    water_body = db.Column(db.String(255), nullable=True)
+    water_body_id = db.Column(db.Integer, db.ForeignKey('water_bodies.id'), nullable=True)
+
+    # Данные для приоритизации
+    passport_year = db.Column(db.Integer, nullable=True)  # год паспортизации
+
+    # Статус и состояние
+    status = db.Column(db.String(50), default='operational')  # operational, maintenance, emergency
+    technical_condition = db.Column(db.Integer, default=1)  # 1..5 (1 = хорошее, 5 = критическое)
+    risk_score = db.Column(db.Integer, default=0)  # 0..100
+    risk_level = db.Column(db.String(20), default='medium')  # high, medium, low
+
+    # Даты инспекций
+    last_inspection = db.Column(db.DateTime, nullable=True)
+    next_inspection = db.Column(db.DateTime, nullable=True)
+
+    # Количественные показатели
+    issues = db.Column(db.Integer, default=0)
+    alerts = db.Column(db.Integer, default=0)
+
+    # Геоданные (опционально) — хранить как JSON или отдельные поля lat/lng
+    coordinates = db.Column(db.JSON, nullable=True)
+
+    # Связи/метаданные
+    related_sensor_ids = db.Column(db.JSON, nullable=True)  # список id датчиков, связанных с объектом
+    description = db.Column(db.Text, nullable=True)
+
+    # Метаданные времени
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def calculate_priority(self):
+        """Вычисляет приоритетный балл и уровень на основе технического состояния и возраста паспорта"""
+        if not self.passport_year:
+            return {'score': 0, 'level': 'low', 'passportAge': 0}
+
+        current_year = datetime.now().year
+        passport_age = current_year - self.passport_year
+
+        # Формула: (6 - Состояние) × 3 + Возраст паспорта
+        priority_score = (6 - self.technical_condition) * 3 + passport_age
+
+        # Определение уровня приоритета
+        if priority_score >= 12:
+            priority_level = 'high'
+        elif priority_score >= 6:
+            priority_level = 'medium'
+        else:
+            priority_level = 'low'
+
+        return {
+            'score': priority_score,
+            'level': priority_level,
+            'passportAge': passport_age
+        }
+
+    def to_dict(self):
+        priority = self.calculate_priority()
+
+        return {
+            'id': self.id,
+            'name': self.name,
+            'type': self.type,
+            'region': self.region,
+            'waterBody': self.water_body,
+            'waterBodyId': self.water_body_id,
+            'capacity': self.capacity,
+            'yearBuilt': self.year_built,
+            'passportYear': self.passport_year,
+            'status': self.status,
+            'technicalCondition': self.technical_condition,
+            'riskScore': self.risk_score,
+            'riskLevel': self.risk_level,
+            'lastInspection': self.last_inspection.isoformat() if self.last_inspection else None,
+            'nextInspection': self.next_inspection.isoformat() if self.next_inspection else None,
+            'issues': self.issues,
+            'alerts': self.alerts,
+            'coordinates': self.coordinates,
+            'relatedSensors': self.related_sensor_ids,
+            'description': self.description,
+            # Вычисляемые поля приоритета
+            'priority': priority,
+            'priorityScore': priority['score'],
+            'priorityLevel': priority['level'],
+            'passportAge': priority['passportAge'],
+            # Метаданные
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<HydroFacility {self.id}: {self.name} ({self.type})>'
+
+
+class WaterBody(db.Model):
+    """Модель водного объекта (река, озеро, водохранилище)
+    Представляет естественные и искусственные водные объекты для системы мониторинга.
+    """
+    __tablename__ = 'water_bodies'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False, index=True)
+    type = db.Column(db.String(50), nullable=False)  # Река, Озеро, Водохранилище
+    region = db.Column(db.String(150), nullable=True, index=True)
+
+    # Геоданные
+    coordinates = db.Column(db.JSON, nullable=True)  # полигон или точка
+    length = db.Column(db.Float, nullable=True)  # для рек (км)
+    area = db.Column(db.Float, nullable=True)  # для озёр/водохранилищ (км²)
+
+    # Характеристики
+    max_depth = db.Column(db.Float, nullable=True)  # максимальная глубина (м)
+    average_depth = db.Column(db.Float, nullable=True)  # средняя глубина (м)
+    volume = db.Column(db.Float, nullable=True)  # объём воды (м³)
+
+    # Связи
+    related_sensor_ids = db.Column(db.JSON, nullable=True)
+    related_facility_ids = db.Column(db.JSON, nullable=True)
+
+    description = db.Column(db.Text, nullable=True)
+
+    # Метаданные
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'type': self.type,
+            'region': self.region,
+            'coordinates': self.coordinates,
+            'length': self.length,
+            'area': self.area,
+            'maxDepth': self.max_depth,
+            'averageDepth': self.average_depth,
+            'volume': self.volume,
+            'relatedSensors': self.related_sensor_ids,
+            'relatedFacilities': self.related_facility_ids,
+            'description': self.description,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<WaterBody {self.id}: {self.name} ({self.type})>'
+
+
+class Report(db.Model):
+    """Модель отчёта МЧС
+    Представляет различные типы отчётов: еженедельные, месячные, по инцидентам, по эвакуациям.
+    """
+    __tablename__ = 'reports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    period = db.Column(db.String(255), nullable=False)  # Период отчёта (текстовое представление)
+
+    # Даты периода (для фильтрации и сортировки)
+    period_start = db.Column(db.Date, nullable=True)
+    period_end = db.Column(db.Date, nullable=True)
+
+    # Тип отчёта
+    type = db.Column(db.String(50), nullable=False)  # weekly, monthly, incident, evacuation
+
+    # Автор отчёта
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    author_name = db.Column(db.String(100), nullable=False)  # Кэшируем имя для быстрого доступа
+
+    # Статус отчёта
+    status = db.Column(db.String(20), default='draft')  # draft, completed
+
+    # Статистика (JSON объект)
+    stats = db.Column(db.JSON, nullable=True)  # {incidents: int, critical: int, evacuations: int}
+
+    # Содержание отчёта
+    content = db.Column(db.Text, nullable=True)  # Основной текст отчёта
+
+    # Файл отчёта (если есть)
+    file_path = db.Column(db.String(500), nullable=True)  # Путь к файлу
+    file_size = db.Column(db.String(20), nullable=True)  # Размер файла (текст, напр. "2.4 MB")
+
+    # Связанные сущности
+    related_sensor_ids = db.Column(db.JSON, nullable=True)
+    related_evacuation_ids = db.Column(db.JSON, nullable=True)
+    related_zone_ids = db.Column(db.JSON, nullable=True)
+
+    # Метаданные
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'period': self.period,
+            'periodStart': self.period_start.isoformat() if self.period_start else None,
+            'periodEnd': self.period_end.isoformat() if self.period_end else None,
+            'type': self.type,
+            'author': self.author_name,
+            'authorId': self.author_id,
+            'status': self.status,
+            'stats': self.stats or {'incidents': 0, 'critical': 0, 'evacuations': 0},
+            'content': self.content,
+            'filePath': self.file_path,
+            'fileSize': self.file_size,
+            'relatedSensors': self.related_sensor_ids,
+            'relatedEvacuations': self.related_evacuation_ids,
+            'relatedZones': self.related_zone_ids,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            'completedAt': self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Report {self.id}: {self.title} ({self.type})>'
 

@@ -1,104 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Search, Filter, Zap, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { getHydroFacilities } from '../../services/hydroFacilityService';
 
 const FacilitiesManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
 
-  const facilities = [
-    {
-      id: 1,
-      name: 'Бухтарминская ГЭС',
-      type: 'ГЭС',
-      region: 'Восточно-Казахстанская область',
-      capacity: 675,
-      yearBuilt: 1966,
-      status: 'operational',
-      technicalCondition: 3,
-      riskScore: 71,
-      lastInspection: '2024-10-15',
-      nextInspection: '2025-01-15',
-      issues: 2,
-      alerts: 1
-    },
-    {
-      id: 2,
-      name: 'Капшагайская ГЭС',
-      type: 'ГЭС',
-      region: 'Алматинская область',
-      capacity: 364,
-      yearBuilt: 1970,
-      status: 'operational',
-      technicalCondition: 2,
-      riskScore: 45,
-      lastInspection: '2024-11-20',
-      nextInspection: '2025-02-20',
-      issues: 0,
-      alerts: 0
-    },
-    {
-      id: 3,
-      name: 'Шульбинская ГЭС',
-      type: 'ГЭС',
-      region: 'Восточно-Казахстанская область',
-      capacity: 702,
-      yearBuilt: 1987,
-      status: 'operational',
-      technicalCondition: 3,
-      riskScore: 68,
-      lastInspection: '2024-09-10',
-      nextInspection: '2024-12-10',
-      issues: 3,
-      alerts: 2
-    },
-    {
-      id: 4,
-      name: 'Усть-Каменогорская ГЭС',
-      type: 'ГЭС',
-      region: 'Восточно-Казахстанская область',
-      capacity: 331,
-      yearBuilt: 1952,
-      status: 'maintenance',
-      technicalCondition: 4,
-      riskScore: 85,
-      lastInspection: '2024-08-05',
-      nextInspection: '2024-12-05',
-      issues: 5,
-      alerts: 3
-    },
-    {
-      id: 5,
-      name: 'Сергеевское водохранилище',
-      type: 'Водохранилище',
-      region: 'Северо-Казахстанская область',
-      capacity: 0,
-      yearBuilt: 1958,
-      status: 'operational',
-      technicalCondition: 2,
-      riskScore: 38,
-      lastInspection: '2024-11-01',
-      nextInspection: '2025-02-01',
-      issues: 1,
-      alerts: 0
-    },
-    {
-      id: 6,
-      name: 'Каратомарская плотина',
-      type: 'Плотина',
-      region: 'Алматинская область',
-      capacity: 0,
-      yearBuilt: 1975,
-      status: 'emergency',
-      technicalCondition: 5,
-      riskScore: 95,
-      lastInspection: '2024-12-01',
-      nextInspection: '2024-12-08',
-      issues: 8,
-      alerts: 5
-    }
-  ];
+  const [facilities, setFacilities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const resp = await getHydroFacilities();
+        const list = resp?.data || [];
+        setFacilities(list);
+      } catch (err) {
+        console.error('Error loading facilities:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const filteredFacilities = facilities.filter(f => {
     const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());

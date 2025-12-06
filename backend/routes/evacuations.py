@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
 from models import db, Evacuation, User, Notification
 from datetime import datetime
+import random
 
 evacuations_bp = Blueprint('evacuations', __name__)
 
@@ -88,6 +89,145 @@ def get_evacuations():
         }), 200
 
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@evacuations_bp.route('/initiate', methods=['POST'])
+@jwt_required()
+def initiate_evacuation_operation():
+    """
+    Инициировать операцию эвакуации — создать записи для жителей в указанном месте
+    Доступ: admin, mchs
+    Body: { location, region?, evacuation_point?, user_ids?: number[] }
+    Если user_ids не указаны, создаёт эвакуации для всех жителей без активной эвакуации
+    Если жителей нет, создает демонстрационную эвакуацию или возвращает пустую операцию
+    """
+    claims = get_jwt()
+    user_type = claims.get('user_type', 'user')
+
+    if user_type not in ['admin', 'mchs']:
+        return jsonify({'error': 'Недостаточно прав доступа'}), 403
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Данные не предоставлены'}), 400
+
+        location = data.get('location')
+        evacuation_point = data.get('evacuation_point') or location
+        region = data.get('region')
+        user_ids = data.get('user_ids', [])
+
+        if not location:
+            return jsonify({'error': 'location обязателен'}), 400
+
+        # Если user_ids не указаны, получаем всех жителей
+        if not user_ids:
+            # Получаем жителей, которые еще не в активной эвакуации
+            all_residents = User.query.filter_by(user_type='user', is_active=True).all()
+            active_evacuation_user_ids = db.session.query(Evacuation.user_id).filter(
+                Evacuation.status.in_(['pending', 'in_progress'])
+            ).all()
+            active_ids = set(r[0] for r in active_evacuation_user_ids)
+            user_ids = [u.id for u in all_residents if u.id not in active_ids]
+
+        # Если все еще нет пользователей, создаем демо эвакуации
+        if not user_ids:
+            # Если указан demo_count, создаем демонстрационные записи без привязки к user_id
+            demo_count = data.get('demo_count', 0)
+            
+            if demo_count > 0:
+                # Создаем демо эвакуации (без привязки к real users, просто для тестирования UI)
+                created_evacuations = []
+                for i in range(demo_count):
+                    # Берем первого доступного пользователя, если есть хотя бы один
+                    first_user = User.query.filter_by(user_type='user', is_active=True).first()
+                    if not first_user:
+                        first_user = User.query.filter_by(user_type='mchs', is_active=True).first()
+                    if not first_user:
+                        first_user = User.query.filter_by(user_type='admin', is_active=True).first()
+                    
+                    if first_user:
+                        evacuation = Evacuation(
+                            user_id=first_user.id,
+                            status='pending',
+                            evacuation_point=evacuation_point,
+                            priority='medium',
+                            family_members=random.randint(1, 4)
+                        )
+                        db.session.add(evacuation)
+                        db.session.flush()
+                        create_evacuation_notification(first_user.id, evacuation.id, 'pending')
+                        created_evacuations.append(evacuation.to_dict())
+
+                db.session.commit()
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'location': location,
+                        'evacuation_point': evacuation_point,
+                        'created_count': len(created_evacuations),
+                        'evacuations': created_evacuations,
+                        'message': f'Создано {len(created_evacuations)} демонстрационных заявок на эвакуацию'
+                    },
+                    'message': f'Создано {len(created_evacuations)} демонстрационных заявок'
+                }), 201
+            
+            # Возвращаем сообщение, что операция открыта, но нет жителей для добавления
+            return jsonify({
+                'success': True,
+                'data': {
+                    'location': location,
+                    'evacuation_point': evacuation_point,
+                    'created_count': 0,
+                    'evacuations': [],
+                    'message': 'Операция готова, но нет доступных жителей для добавления. Передайте demo_count в теле запроса для демо.'
+                },
+                'message': 'Операция создана без жителей'
+            }), 201
+
+        # Создаем эвакуации для каждого жителя
+        created_evacuations = []
+        for user_id in user_ids:
+            # Проверяем, нет ли уже активной эвакуации для этого жителя
+            existing = Evacuation.query.filter(
+                Evacuation.user_id == user_id,
+                Evacuation.status.in_(['pending', 'in_progress'])
+            ).first()
+
+            if existing:
+                continue  # Пропускаем, если уже есть активная эвакуация
+
+            evacuation = Evacuation(
+                user_id=user_id,
+                status='pending',
+                evacuation_point=evacuation_point,
+                priority='medium',
+                family_members=1
+            )
+
+            db.session.add(evacuation)
+            db.session.flush()  # Получаем ID
+
+            # Создаем уведомление
+            create_evacuation_notification(user_id, evacuation.id, 'pending')
+            created_evacuations.append(evacuation.to_dict())
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'location': location,
+                'evacuation_point': evacuation_point,
+                'created_count': len(created_evacuations),
+                'evacuations': created_evacuations
+            },
+            'message': f'Создано {len(created_evacuations)} заявок на эвакуацию'
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 
@@ -321,6 +461,100 @@ def get_evacuation_stats():
                     'withPets': with_pets
                 }
             }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@evacuations_bp.route('/operations', methods=['GET'])
+@jwt_required()
+def get_evacuation_operations():
+    """
+    Получить агрегированные операции эвакуаций (группировка по пункту эвакуации или региону)
+    Доступ: admin, mchs
+    Возвращает структуру, совместимую с фронтендом (location, region, totalPeople, evacuated, inProgress, shelters, transport, medicalTeams, contact)
+    """
+    claims = get_jwt()
+    user_type = claims.get('user_type', 'user')
+
+    if user_type not in ['admin', 'mchs']:
+        return jsonify({'error': 'Недостаточно прав доступа'}), 403
+
+    try:
+        # Загружаем все эвакуации и связанных пользователей (если нужны контакты)
+        evacuations = Evacuation.query.order_by(Evacuation.created_at.desc()).all()
+
+        # Построим групповую структуру по evacuation_point (если нет - по region пользователя)
+        groups = {}
+
+        for e in evacuations:
+            # Ключ группировки - пункт эвакуации, либо 'Не указано'
+            key = e.evacuation_point or 'Не указано'
+
+            if key not in groups:
+                groups[key] = {
+                    'id': f'op-{len(groups)+1}',
+                    'location': key,
+                    'region': None,
+                    'totalPeople': 0,
+                    'evacuated': 0,
+                    'inProgress': False,
+                    'shelters': [],
+                    'transport': { 'buses': 0, 'active': 0 },
+                    'medicalTeams': 0,
+                    'contact': None,
+                    'evacuations': []
+                }
+
+            grp = groups[key]
+
+            # Суммируем людей
+            members = e.family_members or 1
+            grp['totalPeople'] += members
+
+            # Если запись помечена как completed, считаем как эвакуированные
+            if e.status == 'completed':
+                grp['evacuated'] += members
+
+            # Маркер активной эвакуации
+            if e.status == 'in_progress' or e.status == 'pending':
+                grp['inProgress'] = True
+
+            # Попытка взять контакт из связанного пользователя (если есть)
+            try:
+                user = User.query.get(e.user_id)
+                if user and not grp['region']:
+                    grp['region'] = user.address or user.full_name
+                if user and not grp['contact']:
+                    grp['contact'] = user.phone
+            except Exception:
+                pass
+
+            # Добавляем исходную запись для возможной детализации на фронте
+            grp['evacuations'].append(e.to_dict())
+
+        # Преобразуем в список и приводим к формату фронта (удаляем внутренние поля)
+        result = []
+        for g in groups.values():
+            result.append({
+                'id': g['id'],
+                'location': g['location'],
+                'region': g['region'],
+                'totalPeople': g['totalPeople'],
+                'evacuated': g['evacuated'],
+                'inProgress': g['inProgress'],
+                'shelters': g['shelters'],
+                'transport': g['transport'],
+                'medicalTeams': g['medicalTeams'],
+                'contact': g['contact'],
+                'evacuations': g['evacuations']
+            })
+
+        return jsonify({
+            'success': True,
+            'data': result,
+            'count': len(result)
         }), 200
 
     except Exception as e:

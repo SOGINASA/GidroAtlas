@@ -351,12 +351,228 @@ def seed_risk_zones():
 
 
     for zone_data in zones_data:
-        zone = RiskZone(**zone_data)
+        # Вычисляем текущий уровень воды и статус зоны на основе связанных датчиков (если есть)
+        related = zone_data.get('related_sensor_ids') or []
+        wl_values = []
+        danger_levels = []
+        for sid in related:
+            s = Sensor.query.filter_by(id=sid).first()
+            if s:
+                try:
+                    wl_values.append(float(s.water_level))
+                except Exception:
+                    pass
+                danger_levels.append(s.get_danger_level())
+
+        water_level = max(wl_values) if wl_values else 0.0
+
+        # Простая логика порога по типу зоны (можно настроить)
+        if zone_data.get('type') == 'high':
+            threshold = 6.0
+        elif zone_data.get('type') == 'medium':
+            threshold = 4.5
+        else:
+            threshold = 3.5
+
+        # Тренд: если текущий уровень превышает порог — rising, иначе stable
+        trend = 'rising' if water_level >= threshold else 'stable'
+
+        # Статус: критический если есть критические датчики или вода значительно выше порога
+        if 'critical' in danger_levels or water_level >= threshold * 1.1:
+            status = 'critical'
+        elif 'danger' in danger_levels or water_level >= threshold:
+            status = 'warning'
+        else:
+            status = 'monitoring'
+
+        zone = RiskZone(
+            id=zone_data.get('id'),
+            name=zone_data.get('name'),
+            type=zone_data.get('type'),
+            location=zone_data.get('name'),
+            region=zone_data.get('region', 'Неизвестен'),
+            coordinates=zone_data.get('coordinates'),
+            water_level=water_level,
+            threshold=threshold,
+            trend=trend,
+            residents_count=zone_data.get('residents_count', 0),
+            affected_population=zone_data.get('residents_count', 0),
+            evacuated_count=0,
+            related_sensor_ids=zone_data.get('related_sensor_ids'),
+            status=status,
+            description=zone_data.get('description')
+        )
         db.session.add(zone)
-        print(f"  Создана зона: {zone.name}")
+        print(f"  Создана зона: {zone.name} (status={status} wl={water_level})")
 
     db.session.commit()
     print("[OK] Все зоны риска добавлены")
+
+
+def seed_hydro_facilities():
+    """Создаёт несколько тестовых записей гидротехнических сооружений (ГТС)"""
+    from models import HydroFacility
+
+    if HydroFacility.query.first():
+        print("ГТС уже созданы")
+        return
+
+    # Получаем водные объекты для связывания
+    from models import WaterBody
+    wb_karatomar = WaterBody.query.filter_by(name='Река Каратомар').first()
+    wb_irtysh = WaterBody.query.filter_by(name='Река Иртыш').first()
+    wb_ili = WaterBody.query.filter_by(name='Река Или').first()
+    wb_balkhash = WaterBody.query.filter_by(name='Озеро Балхаш').first()
+    wb_ural = WaterBody.query.filter_by(name='Река Урал').first()
+    wb_ishim = WaterBody.query.filter_by(name='Река Ишим').first()
+    wb_zaisan = WaterBody.query.filter_by(name='Озеро Зайсан').first()
+
+    facilities = [
+        {
+            'name': 'Каратомарская плотина',
+            'type': 'Плотина',
+            'region': 'Алматинская область',
+            'water_body': 'Река Каратомар',
+            'water_body_id': wb_karatomar.id if wb_karatomar else None,
+            'capacity': 120.0,
+            'year_built': 2005,
+            'passport_year': 2010,
+            'status': 'operational',
+            'technical_condition': 5,
+            'risk_score': 95,
+            'risk_level': 'high',
+            'issues': 8,
+            'alerts': 3,
+            'last_inspection': date(2024, 12, 1),
+            'coordinates': {'lat': 43.25, 'lng': 76.95},
+            'description': 'Плотина на реке Каратомар, требует срочного обследования'
+        },
+        {
+            'name': 'Усть-Каменогорская ГЭС',
+            'type': 'ГЭС',
+            'region': 'Восточно-Казахстанская область',
+            'water_body': 'Река Иртыш',
+            'water_body_id': wb_irtysh.id if wb_irtysh else None,
+            'capacity': 331.2,
+            'year_built': 1952,
+            'passport_year': 2015,
+            'status': 'operational',
+            'technical_condition': 4,
+            'risk_score': 75,
+            'risk_level': 'high',
+            'issues': 5,
+            'alerts': 2,
+            'last_inspection': date(2024, 8, 5),
+            'coordinates': {'lat': 50.00, 'lng': 82.61},
+            'description': 'Крупная ГЭС на реке Иртыш'
+        },
+        {
+            'name': 'Бухтарминская ГЭС',
+            'type': 'ГЭС',
+            'region': 'Восточно-Казахстанская область',
+            'water_body': 'Река Иртыш',
+            'water_body_id': wb_irtysh.id if wb_irtysh else None,
+            'capacity': 675.0,
+            'year_built': 1966,
+            'passport_year': 2012,
+            'status': 'operational',
+            'technical_condition': 3,
+            'risk_score': 55,
+            'risk_level': 'medium',
+            'issues': 2,
+            'alerts': 1,
+            'last_inspection': date(2024, 10, 15),
+            'coordinates': {'lat': 49.87, 'lng': 83.05},
+            'description': 'ГЭС на Бухтарминском водохранилище'
+        },
+        {
+            'name': 'Шульбинская ГЭС',
+            'type': 'ГЭС',
+            'region': 'Восточно-Казахстанская область',
+            'water_body': 'Река Иртыш',
+            'water_body_id': wb_irtysh.id if wb_irtysh else None,
+            'capacity': 702.0,
+            'year_built': 1987,
+            'passport_year': 2013,
+            'status': 'operational',
+            'technical_condition': 3,
+            'risk_score': 50,
+            'risk_level': 'medium',
+            'issues': 3,
+            'alerts': 1,
+            'last_inspection': date(2024, 9, 10),
+            'coordinates': {'lat': 50.22, 'lng': 82.19},
+            'description': 'ГЭС в среднем течении Иртыша'
+        },
+        {
+            'name': 'Капшагайская ГЭС',
+            'type': 'ГЭС',
+            'region': 'Алматинская область',
+            'water_body': 'Река Или',
+            'water_body_id': wb_ili.id if wb_ili else None,
+            'capacity': 364.0,
+            'year_built': 1970,
+            'passport_year': 2019,
+            'status': 'operational',
+            'technical_condition': 2,
+            'risk_score': 25,
+            'risk_level': 'low',
+            'issues': 0,
+            'alerts': 0,
+            'last_inspection': date(2024, 11, 20),
+            'coordinates': {'lat': 43.90, 'lng': 77.10},
+            'description': 'ГЭС на реке Или, в хорошем состоянии'
+        },
+        {
+            'name': 'Сергеевское водохранилище',
+            'type': 'Водохранилище',
+            'region': 'Северо-Казахстанская область',
+            'water_body': 'Река Ишим',
+            'water_body_id': wb_ishim.id if wb_ishim else None,
+            'capacity': 664.0,
+            'year_built': 1963,
+            'passport_year': 2020,
+            'status': 'operational',
+            'technical_condition': 2,
+            'risk_score': 20,
+            'risk_level': 'low',
+            'issues': 1,
+            'alerts': 0,
+            'last_inspection': date(2024, 11, 1),
+            'coordinates': {'lat': 54.34, 'lng': 69.34},
+            'description': 'Водохранилище на реке Ишим'
+        }
+    ]
+
+    for f in facilities:
+        hf = HydroFacility(
+            name=f['name'],
+            type=f['type'],
+            region=f.get('region'),
+            water_body=f.get('water_body'),
+            water_body_id=f.get('water_body_id'),
+            capacity=f.get('capacity', 0.0),
+            year_built=f.get('year_built'),
+            passport_year=f.get('passport_year'),
+            status=f.get('status', 'operational'),
+            technical_condition=f.get('technical_condition', 1),
+            risk_score=f.get('risk_score', 0),
+            risk_level=f.get('risk_level', 'medium'),
+            last_inspection=f.get('last_inspection'),
+            issues=f.get('issues', 0),
+            alerts=f.get('alerts', 0),
+            coordinates=f.get('coordinates'),
+            related_sensor_ids=f.get('related_sensor_ids'),
+            description=f.get('description')
+        )
+        db.session.add(hf)
+
+        # Вычисляем приоритет для отображения
+        calc_priority = hf.calculate_priority()
+        print(f"  Добавлена ГТС: {hf.name} (score={calc_priority['score']}, level={calc_priority['level']})")
+
+    db.session.commit()
+    print("[OK] ГТС добавлены в БД")
 
 
 def seed_sensor_readings():
@@ -561,15 +777,246 @@ def seed_evacuations():
     print("[OK] Все эвакуации успешно добавлены")
 
 
+def seed_water_bodies():
+    """Создаёт тестовые записи водных объектов"""
+    from models import WaterBody
+
+    if WaterBody.query.first():
+        print("Водные объекты уже созданы")
+        return
+
+    water_bodies = [
+        {
+            'name': 'Река Иртыш',
+            'type': 'Река',
+            'region': 'Восточно-Казахстанская область',
+            'length': 4248.0,
+            'area': None,
+            'max_depth': 45.0,
+            'average_depth': 12.5,
+            'volume': None,
+            'description': 'Одна из крупнейших рек Казахстана, приток Оби'
+        },
+        {
+            'name': 'Река Или',
+            'type': 'Река',
+            'region': 'Алматинская область',
+            'length': 1439.0,
+            'area': None,
+            'max_depth': 30.0,
+            'average_depth': 8.2,
+            'volume': None,
+            'description': 'Основная река, впадающая в озеро Балхаш'
+        },
+        {
+            'name': 'Озеро Балхаш',
+            'type': 'Озеро',
+            'region': 'Алматинская область',
+            'length': 614.0,
+            'area': 16400.0,
+            'max_depth': 26.0,
+            'average_depth': 5.8,
+            'volume': 112000000000.0,
+            'description': 'Одно из крупнейших озёр Центральной Азии'
+        },
+        {
+            'name': 'Река Каратомар',
+            'type': 'Река',
+            'region': 'Алматинская область',
+            'length': 124.0,
+            'area': None,
+            'max_depth': 12.0,
+            'average_depth': 4.5,
+            'volume': None,
+            'description': 'Горная река в Алматинской области'
+        },
+        {
+            'name': 'Река Урал',
+            'type': 'Река',
+            'region': 'Западно-Казахстанская область',
+            'length': 2428.0,
+            'area': None,
+            'max_depth': 35.0,
+            'average_depth': 10.0,
+            'volume': None,
+            'description': 'Река, впадающая в Каспийское море'
+        },
+        {
+            'name': 'Река Ишим',
+            'type': 'Река',
+            'region': 'Северо-Казахстанская область',
+            'length': 2450.0,
+            'area': None,
+            'max_depth': 28.0,
+            'average_depth': 7.8,
+            'volume': None,
+            'description': 'Левый приток Иртыша'
+        },
+        {
+            'name': 'Озеро Зайсан',
+            'type': 'Озеро',
+            'region': 'Восточно-Казахстанская область',
+            'length': 105.0,
+            'area': 1810.0,
+            'max_depth': 15.0,
+            'average_depth': 4.7,
+            'volume': 53000000000.0,
+            'description': 'Пресноводное озеро в бассейне Иртыша'
+        },
+        {
+            'name': 'Сергеевское водохранилище',
+            'type': 'Водохранилище',
+            'region': 'Северо-Казахстанская область',
+            'length': 42.0,
+            'area': 117.0,
+            'max_depth': 22.0,
+            'average_depth': 8.5,
+            'volume': 664000000.0,
+            'description': 'Искусственное водохранилище на реке Ишим'
+        }
+    ]
+
+    for wb_data in water_bodies:
+        wb = WaterBody(
+            name=wb_data['name'],
+            type=wb_data['type'],
+            region=wb_data['region'],
+            length=wb_data.get('length'),
+            area=wb_data.get('area'),
+            max_depth=wb_data.get('max_depth'),
+            average_depth=wb_data.get('average_depth'),
+            volume=wb_data.get('volume'),
+            description=wb_data.get('description')
+        )
+        db.session.add(wb)
+        print(f"  Добавлен водный объект: {wb.name} ({wb.type})")
+
+    db.session.commit()
+    print("[OK] Водные объекты добавлены в БД")
+
+
+def seed_reports():
+    """Создает тестовые отчёты МЧС"""
+    from models import Report, User
+
+    if Report.query.first():
+        print("Отчёты уже созданы")
+        return
+
+    # Получаем пользователя МЧС для авторства
+    mchs_user = User.query.filter_by(user_type='mchs').first()
+    if not mchs_user:
+        print("Сначала создайте пользователя МЧС")
+        return
+
+    reports_data = [
+        {
+            'title': 'Еженедельный отчёт МЧС',
+            'period': '27 нояб. - 3 дек. 2024',
+            'period_start': date(2024, 11, 27),
+            'period_end': date(2024, 12, 3),
+            'type': 'weekly',
+            'author_id': mchs_user.id,
+            'author_name': mchs_user.full_name,
+            'status': 'completed',
+            'stats': {'incidents': 45, 'critical': 8, 'evacuations': 3},
+            'content': 'Сводка за неделю. Зафиксировано повышение уровня воды в нескольких зонах мониторинга.',
+            'file_size': '2.4 MB',
+            'completed_at': datetime.utcnow() - timedelta(days=3)
+        },
+        {
+            'title': 'Отчёт по инциденту: Иртыш',
+            'period': '1 дек. 2024',
+            'period_start': date(2024, 12, 1),
+            'period_end': date(2024, 12, 1),
+            'type': 'incident',
+            'author_id': mchs_user.id,
+            'author_name': 'Петров П.П.',
+            'status': 'completed',
+            'stats': {'incidents': 1, 'critical': 1, 'evacuations': 1},
+            'content': 'Критическое повышение уровня воды на реке Иртыш. Проведена эвакуация 150 человек.',
+            'file_size': '1.8 MB',
+            'completed_at': datetime.utcnow() - timedelta(days=5)
+        },
+        {
+            'title': 'Месячный отчёт - Ноябрь 2024',
+            'period': '1-30 ноября 2024',
+            'period_start': date(2024, 11, 1),
+            'period_end': date(2024, 11, 30),
+            'type': 'monthly',
+            'author_id': mchs_user.id,
+            'author_name': 'Сидоров С.С.',
+            'status': 'completed',
+            'stats': {'incidents': 182, 'critical': 34, 'evacuations': 15},
+            'content': 'Полный отчёт за ноябрь 2024 года. Общая статистика по инцидентам и эвакуациям.',
+            'file_size': '5.2 MB',
+            'completed_at': datetime.utcnow() - timedelta(days=6)
+        },
+        {
+            'title': 'Отчёт по эвакуации: Затобольск',
+            'period': '25 нояб. 2024',
+            'period_start': date(2024, 11, 25),
+            'period_end': date(2024, 11, 25),
+            'type': 'evacuation',
+            'author_id': mchs_user.id,
+            'author_name': 'Козлов К.К.',
+            'status': 'draft',
+            'stats': {'incidents': 1, 'critical': 0, 'evacuations': 1},
+            'content': 'Эвакуация жителей района Затобольск. Черновик отчёта.',
+            'file_size': '0.8 MB',
+            'completed_at': None
+        },
+        {
+            'title': 'Еженедельный отчёт МЧС',
+            'period': '20-26 нояб. 2024',
+            'period_start': date(2024, 11, 20),
+            'period_end': date(2024, 11, 26),
+            'type': 'weekly',
+            'author_id': mchs_user.id,
+            'author_name': mchs_user.full_name,
+            'status': 'completed',
+            'stats': {'incidents': 38, 'critical': 5, 'evacuations': 2},
+            'content': 'Еженедельная сводка. Ситуация стабильная, уровни воды в пределах нормы.',
+            'file_size': '2.1 MB',
+            'completed_at': datetime.utcnow() - timedelta(days=10)
+        },
+        {
+            'title': 'Отчёт по инциденту: Плотина Каратомар',
+            'period': '15 нояб. 2024',
+            'period_start': date(2024, 11, 15),
+            'period_end': date(2024, 11, 15),
+            'type': 'incident',
+            'author_id': mchs_user.id,
+            'author_name': mchs_user.full_name,
+            'status': 'completed',
+            'stats': {'incidents': 1, 'critical': 1, 'evacuations': 0},
+            'content': 'Обнаружены повреждения на Каратомарской плотине. Требуется срочный ремонт.',
+            'file_size': '3.2 MB',
+            'completed_at': datetime.utcnow() - timedelta(days=21)
+        }
+    ]
+
+    for report_data in reports_data:
+        report = Report(**report_data)
+        db.session.add(report)
+        print(f"  Создан отчёт: {report.title} ({report.type}, {report.status})")
+
+    db.session.commit()
+    print("[OK] Все отчёты успешно добавлены")
+
+
 def seed_all():
     """Запускает все функции заполнения БД"""
     print("=== Запуск заполнения БД синтетическими данными ===")
     seed_users()
     seed_sensors()
     seed_risk_zones()
+    seed_water_bodies()
+    seed_hydro_facilities()
     seed_sensor_readings()
     seed_notifications()
     seed_evacuations()
+    seed_reports()
     print("=== Заполнение БД завершено ===")
 
 if __name__ == "__main__":

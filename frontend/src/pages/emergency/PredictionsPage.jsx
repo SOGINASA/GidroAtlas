@@ -1,11 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Brain, TrendingUp, AlertTriangle, Calendar, Target } from 'lucide-react';
+import { getPredictions } from '../../services/predictionService';
 
 const EmergencyPredictions = () => {
   const [timeRange, setTimeRange] = useState('week');
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const predictions = [
+  // Fetch predictions on mount
+  useEffect(() => {
+    fetchPredictions();
+  }, []);
+
+  const fetchPredictions = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await getPredictions();
+      setPredictions(data || []);
+    } catch (err) {
+      console.error('Error loading predictions:', err);
+      console.warn('[WARNING] Using mock data for PredictionsPage - API request failed');
+      setError('Ошибка загрузки прогнозов');
+      // Set default mock data on error
+      setDefaultMockData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setDefaultMockData = () => {
+    setPredictions([
     {
       id: 1,
       location: 'Река Иртыш (Павлодар)',
@@ -89,7 +116,8 @@ const EmergencyPredictions = () => {
       ],
       affectedPopulation: 0
     }
-  ];
+  ]);
+  }
 
   const getRiskColor = (risk) => {
     switch (risk) {
@@ -151,6 +179,20 @@ const EmergencyPredictions = () => {
           </div>
         </div>
 
+        {/* Error notification */}
+        {error && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="bg-white border-b border-gray-200 px-4 py-6">
+            <p className="text-gray-600">Загрузка прогнозов...</p>
+          </div>
+        )}
+
         {/* Stats Bar */}
         <div className="bg-white border-b border-gray-200">
           <div className="container mx-auto px-4 py-4">
@@ -195,7 +237,7 @@ const EmergencyPredictions = () => {
                 <div>
                   <p className="text-sm text-gray-600">Ср. точность</p>
                   <p className="text-2xl font-bold text-purple-600">
-                    {Math.round(predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length)}%
+                    {predictions.length ? Math.round(predictions.reduce((sum, p) => sum + (p.confidence || 0), 0) / predictions.length) : 0}%
                   </p>
                 </div>
               </div>
@@ -274,7 +316,7 @@ const EmergencyPredictions = () => {
                       <div>
                         <h4 className="font-bold text-gray-900 mb-3">Факторы влияния</h4>
                         <div className="space-y-2">
-                          {Object.entries(pred.factors).map(([key, value]) => (
+                          {Object.entries(pred.factors || {}).map(([key, value]) => (
                             <div key={key} className="flex items-start space-x-3 text-sm">
                               <div className="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0" />
                               <span className="text-gray-700">{value}</span>

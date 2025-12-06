@@ -5,7 +5,7 @@ import { Droplets, User, GraduationCap, Siren, Settings, Lock, Mail, Eye, EyeOff
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -83,27 +83,20 @@ const RegisterPage = () => {
         throw new Error('Некорректный email адрес');
       }
 
-      // Имитация задержки API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Mock пользователь
-      const mockUser = {
-        id: Date.now(),
+      // Call real backend register via useAuth hook
+      await register({
         email: formData.email,
-        name: `${formData.firstName} ${formData.lastName}`,
+        password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone,
         organization: formData.organization,
-        role: selectedRole
-      };
-
-      // Автоматический вход после регистрации
-      login(mockUser, selectedRole);
+        user_type: selectedRole
+      });
 
       // Редирект на нужную страницу
       const roleData = userTypes.find(r => r.id === selectedRole);
-      navigate(roleData.route);
+      navigate(roleData?.route ?? '/');
 
     } catch (err) {
       setError(err.message || 'Ошибка регистрации');

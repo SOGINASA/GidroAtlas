@@ -15,50 +15,151 @@ import {
   AlertCircle,
   Map
 } from 'lucide-react';
+import { getWaterBodies, getWaterBodiesStats } from '../../services/waterBodyService';
+import { getHydroFacilities } from '../../services/hydroFacilityService';
+import { getHighRiskPredictions } from '../../services/predictionService';
+import { getAllSensors, getCriticalSensors } from '../../services/sensorService';
 
 const EmergencyDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [stats, setStats] = useState([]);
+  const [criticalAlerts, setCriticalAlerts] = useState([]);
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      // Fetch all data
+      const sensorsResponse = await getAllSensors();
+      const sensors = sensorsResponse.data || [];
+      const criticalSensorsResponse = await getCriticalSensors();
+      const criticalSensors = criticalSensorsResponse.data || [];
+
+      const waterBodiesStats = await getWaterBodiesStats();
+      const facilitiesResp = await getHydroFacilities();
+      const facilities = facilitiesResp?.data || [];
+      const highRiskPreds = await getHighRiskPredictions();
+      const waterBodies = await getWaterBodies();
+
+      // Build stats from real data
+      const activeSensors = sensors.filter(s => s.status === 'active');
+      const newStats = [
+        {
+          icon: Droplets,
+          label: 'Водоёмы на контроле',
+          value: waterBodiesStats?.total?.toString() || '0',
+          change: '+3',
+          color: 'from-blue-500 to-cyan-500'
+        },
+        {
+          icon: Zap,
+          label: 'ГТС в системе',
+          value: (facilities && facilities.length)?.toString() || '0',
+          change: '0',
+          color: 'from-purple-500 to-pink-500'
+        },
+        {
+          icon: AlertTriangle,
+          label: 'Критические зоны',
+          value: criticalSensors.length.toString(),
+          change: `+${criticalSensors.filter(s => s.dangerLevel === 'critical').length}`,
+          color: 'from-orange-500 to-red-500',
+          alert: true
+        },
+        {
+          icon: Activity,
+          label: 'Активные датчики',
+          value: activeSensors.length.toString(),
+          change: `+${sensors.filter(s => s.dangerLevel === 'safe').length}`,
+          color: 'from-green-500 to-emerald-500'
+        }
+      ];
+      setStats(newStats);
+
+      // Use critical sensors as alerts if no water bodies alerts
+      const criticalWaterBodies = (waterBodies || [])
+        .filter(wb => wb.status === 'critical' || wb.status === 'danger' || wb.status === 'warning')
+        .slice(0, 3);
+
+      if (criticalWaterBodies.length > 0) {
+        setCriticalAlerts(criticalWaterBodies);
+      } else {
+        // Convert critical sensors to alerts format
+        const sensorAlerts = criticalSensors.slice(0, 3).map(sensor => ({
+          id: sensor.id,
+          name: sensor.name,
+          location: sensor.location,
+          waterLevel: sensor.waterLevel,
+          status: sensor.dangerLevel,
+          lastUpdate: sensor.lastUpdate
+        }));
+        setCriticalAlerts(sensorAlerts);
+      }
+
+      // Set high-risk predictions
+      setPredictions(highRiskPreds?.slice(0, 3) || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      console.warn('[WARNING] Using mock data for EmergencyDashboard - API request failed');
+      setError('Ошибка при загрузке данных. Используются демо-данные.');
+      // Set default mock data on error
+      setDefaultMockData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setDefaultMockData = () => {
+    setStats([
+      {
+        icon: Droplets,
+        label: 'Водоёмы на контроле',
+        value: '156',
+        change: '+3',
+        color: 'from-blue-500 to-cyan-500'
+      },
+      {
+        icon: Zap,
+        label: 'ГТС в системе',
+        value: '47',
+        change: '0',
+        color: 'from-purple-500 to-pink-500'
+      },
+      {
+        icon: AlertTriangle,
+        label: 'Критические зоны',
+        value: '8',
+        change: '+2',
+        color: 'from-orange-500 to-red-500',
+        alert: true
+      },
+      {
+        icon: Activity,
+        label: 'Активные датчики',
+        value: '234',
+        change: '-5',
+        color: 'from-green-500 to-emerald-500'
+      }
+    ]);
+  };
+
+  // Update current time
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Mock данные - статистика
-  const stats = [
-    {
-      icon: Droplets,
-      label: 'Водоёмы на контроле',
-      value: '156',
-      change: '+3',
-      color: 'from-blue-500 to-cyan-500'
-    },
-    {
-      icon: Zap,
-      label: 'ГТС в системе',
-      value: '47',
-      change: '0',
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      icon: AlertTriangle,
-      label: 'Критические зоны',
-      value: '8',
-      change: '+2',
-      color: 'from-orange-500 to-red-500',
-      alert: true
-    },
-    {
-      icon: Activity,
-      label: 'Активные датчики',
-      value: '234',
-      change: '-5',
-      color: 'from-green-500 to-emerald-500'
-    }
-  ];
-
-  // Mock критические алерты
-  const criticalAlerts = [
+  // Default mock alerts if API data unavailable
+  const defaultMockAlerts = [
     {
       id: 1,
       location: 'Река Иртыш, Павлодарская область',
@@ -91,8 +192,8 @@ const EmergencyDashboard = () => {
     }
   ];
 
-  // Mock AI предикты
-  const predictions = [
+  // Use predictions from state or defaults
+  const displayPredictions = predictions.length > 0 ? predictions : [
     {
       id: 1,
       location: 'Иртыш (Павлодар)',
@@ -218,7 +319,7 @@ const EmergencyDashboard = () => {
               </div>
 
               <div className="space-y-4">
-                {criticalAlerts.map((alert) => (
+                {(criticalAlerts.length > 0 ? criticalAlerts : defaultMockAlerts).map((alert) => (
                   <div key={alert.id} className={`border-2 rounded-xl p-4 ${getLevelColor(alert.level)}`}>
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
@@ -249,7 +350,7 @@ const EmergencyDashboard = () => {
               </div>
 
               <div className="space-y-4">
-                {predictions.map((pred) => (
+                {displayPredictions.map((pred) => (
                   <div key={pred.id} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">

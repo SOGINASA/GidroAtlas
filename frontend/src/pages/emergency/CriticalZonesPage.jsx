@@ -1,82 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { AlertTriangle, Users, TrendingUp, MapPin, Phone } from 'lucide-react';
+import { getRiskZones } from '../../services/sensorService';
+import { getEvacuationOperations, updateEvacuationStatus, initiateEvacuationOperation } from '../../services/evacuationService';
 
 const CriticalZonesPage = () => {
   const [activeTab, setActiveTab] = useState('zones');
+  const [zones, setZones] = useState([]);
+  const [loadingZones, setLoadingZones] = useState(false);
+  const [zonesError, setZonesError] = useState(null);
+  const [evacuations, setEvacuations] = useState([]);
+  const [loadingEvacuations, setLoadingEvacuations] = useState(false);
+  const [evacError, setEvacError] = useState(null);
+  const [startingEvacIds, setStartingEvacIds] = useState({});
+  const [initiatingIds, setInitiatingIds] = useState({});
 
-  const zones = [
-    {
-      id: 1,
-      location: 'Павлодар, Река Иртыш',
-      region: 'Павлодарская область',
-      waterLevel: 8.2,
-      threshold: 7.0,
-      trend: 'rising',
-      affectedPopulation: 15000,
-      evacuated: 3500,
-      status: 'critical',
-      sensors: ['S-001', 'S-002', 'S-003']
-    },
-    {
-      id: 2,
-      location: 'Алматы, Малая Алматинка',
-      region: 'Алматинская область',
-      waterLevel: 4.5,
-      threshold: 4.0,
-      trend: 'rising',
-      affectedPopulation: 8000,
-      evacuated: 0,
-      status: 'warning',
-      sensors: ['S-045', 'S-046']
-    },
-    {
-      id: 3,
-      location: 'Уральск, Река Урал',
-      region: 'ЗКО',
-      waterLevel: 5.4,
-      threshold: 4.5,
-      trend: 'stable',
-      affectedPopulation: 5000,
-      evacuated: 0,
-      status: 'monitoring',
-      sensors: ['S-078', 'S-079']
-    }
-  ];
+  useEffect(() => {
+    let mountedEv = true;
+    const loadEvacuations = async () => {
+      setLoadingEvacuations(true);
+      try {
+        const res = await getEvacuationOperations();
+        if (mountedEv && res && res.data) {
+          setEvacuations(res.data || []);
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки операций эвакуаций', err);
+        setEvacError(err.message || 'Ошибка получения эвакуаций');
+      } finally {
+        setLoadingEvacuations(false);
+      }
+    };
 
-  const evacuations = [
-    {
-      id: 1,
-      location: 'Затобольск',
-      region: 'Северо-Казахстанская область',
-      totalPeople: 2500,
-      evacuated: 1800,
-      inProgress: true,
-      shelters: [
-        { name: 'Школа №5', capacity: 500, occupied: 480 },
-        { name: 'Спорткомплекс', capacity: 1000, occupied: 850 },
-        { name: 'Гостиница "Северная"', capacity: 300, occupied: 250 }
-      ],
-      transport: { buses: 15, active: 8 },
-      medicalTeams: 4,
-      contact: '+7 (715) 234-56-78'
-    },
-    {
-      id: 2,
-      location: 'Лебяжье',
-      region: 'Павлодарская область',
-      totalPeople: 1200,
-      evacuated: 700,
-      inProgress: true,
-      shelters: [
-        { name: 'Культурный центр', capacity: 600, occupied: 450 },
-        { name: 'Школа-интернат', capacity: 400, occupied: 250 }
-      ],
-      transport: { buses: 8, active: 5 },
-      medicalTeams: 2,
-      contact: '+7 (718) 345-67-89'
+    loadEvacuations();
+    return () => { mountedEv = false; };
+  }, []);
+
+  const refreshEvacuations = async () => {
+    setLoadingEvacuations(true);
+    try {
+      const res = await getEvacuationOperations();
+      setEvacuations(res.data || []);
+    } catch (err) {
+      setEvacError(err.message || 'Ошибка получения эвакуаций');
+    } finally {
+      setLoadingEvacuations(false);
     }
-  ];
+  };
+
+  const handleStartEvacuation = async (operation) => {
+    if (!operation || !operation.evacuations || operation.evacuations.length === 0) {
+      // Нет индивидуальных записей — предлагаем создать
+      const confirm = window.confirm('Нет существующих заявок на эвакуацию. Хотите создать их для всех жителей в этой зоне?');
+      if (confirm) {
+        await handleInitiateEvacuation(operation);
+      }
+      return;
+    }
+
+    // Помечаем, что операция стартует
+    setStartingEvacIds(prev => ({ ...prev, [operation.id]: true }));
+
+    try {
+      const promises = operation.evacuations.map(ev => {
+        if (ev.status === 'in_progress' || ev.status === 'completed') return Promise.resolve();
+        return updateEvacuationStatus(ev.id, 'in_progress');
+      });
+
+      await Promise.all(promises);
+      // Обновим список операций
+      await refreshEvacuations();
+    } catch (err) {
+      console.error('Ошибка при старте эвакуации', err);
+      alert(err.message || 'Не удалось начать эвакуацию');
+    } finally {
+      setStartingEvacIds(prev => {
+        const next = { ...prev };
+        delete next[operation.id];
+        return next;
+      });
+    }
+  };
+
+  const handleInitiateEvacuation = async (operation) => {
+    if (!operation || !operation.location) {
+      alert('Не удалось определить место эвакуации');
+      return;
+    }
+
+    setInitiatingIds(prev => ({ ...prev, [operation.id]: true }));
+
+    try {
+      await initiateEvacuationOperation({
+        location: operation.location,
+        evacuation_point: operation.location,
+        region: operation.region,
+        demo_count: 5  // Создаем 5 демонстрационных заявок для тестирования
+      });
+
+      // Обновим список операций после создания
+      await refreshEvacuations();
+    } catch (err) {
+      console.error('Ошибка при создании заявок на эвакуацию', err);
+      alert(err.message || 'Не удалось создать заявки на эвакуацию');
+    } finally {
+      setInitiatingIds(prev => {
+        const next = { ...prev };
+        delete next[operation.id];
+        return next;
+      });
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoadingZones(true);
+      try {
+        const res = await getRiskZones();
+        if (mounted && res && res.data) {
+          // Ensure array format and map to expected UI fields if necessary
+          const mapped = (res.data || []).map((z, idx) => ({
+            id: z.id || idx,
+            location: z.location || z.name,
+            region: z.region,
+            waterLevel: z.waterLevel,
+            threshold: z.threshold,
+            trend: z.trend,
+            affectedPopulation: z.affectedPopulation,
+            evacuated: z.evacuated,
+            status: z.status,
+            sensors: z.sensors || z.relatedSensors || []
+          }));
+          setZones(mapped);
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки зон риска', err);
+        setZonesError(err.message || 'Ошибка получения зон');
+      } finally {
+        setLoadingZones(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <EmergencyLayout>
@@ -88,7 +156,7 @@ const CriticalZonesPage = () => {
           </div>
         </div>
 
-        <div className="bg-white border-b">
+          <div className="bg-white border-b">
           <div className="container mx-auto px-4 py-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex items-center space-x-3">
@@ -120,7 +188,7 @@ const CriticalZonesPage = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Активных эвакуаций</p>
-                  <p className="text-2xl font-bold text-blue-600">{evacuations.filter(e => e.inProgress).length}</p>
+                  <p className="text-2xl font-bold text-blue-600">{(evacuations || []).filter(e => e.inProgress).length}</p>
                 </div>
               </div>
             </div>
@@ -153,6 +221,12 @@ const CriticalZonesPage = () => {
             <div className="p-6">
               {activeTab === 'zones' && (
                 <div className="space-y-6">
+                  {loadingZones && <div className="p-6">Загрузка критических зон...</div>}
+                  {zonesError && <div className="p-6 text-red-600">Ошибка: {zonesError}</div>}
+                  {!loadingZones && zones.length === 0 && !zonesError && (
+                    <div className="p-6 text-gray-600">Критические зоны не найдены</div>
+                  )}
+
                   {zones.map((zone) => (
                     <div key={zone.id} className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
                       <div className="flex items-start justify-between mb-4">
@@ -200,10 +274,14 @@ const CriticalZonesPage = () => {
 
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600">
-                          Датчики: {zone.sensors.join(', ')}
+                          Датчики: {(zone.sensors || []).join(', ')}
                         </div>
-                        <button className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">
-                          Начать эвакуацию
+                        <button
+                          onClick={() => handleStartEvacuation(evacuations.find(op => op.location === zone.location) || { location: zone.location, region: zone.region })}
+                          disabled={startingEvacIds[evacuations.find(op => op.location === zone.location)?.id] || initiatingIds[evacuations.find(op => op.location === zone.location)?.id] || false}
+                          className={`px-6 py-2 rounded-lg font-semibold ${(startingEvacIds[evacuations.find(op => op.location === zone.location)?.id] || initiatingIds[evacuations.find(op => op.location === zone.location)?.id]) ? 'bg-gray-400 text-white' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                        >
+                          {initiatingIds[evacuations.find(op => op.location === zone.location)?.id] ? 'Создание...' : startingEvacIds[evacuations.find(op => op.location === zone.location)?.id] ? 'Запуск...' : 'Начать эвакуацию'}
                         </button>
                       </div>
                     </div>
@@ -213,15 +291,16 @@ const CriticalZonesPage = () => {
 
               {activeTab === 'evacuations' && (
                 <div className="space-y-6">
-                  {evacuations.map((evac) => (
+                  {loadingEvacuations && <div className="p-4">Загрузка эвакуаций...</div>}
+                  {!loadingEvacuations && (evacuations || []).map((evac) => (
                     <div key={evac.id} className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <h3 className="text-xl font-bold text-gray-900 mb-2">{evac.location}</h3>
                           <p className="text-sm text-gray-600">{evac.region}</p>
                         </div>
-                        <span className="px-4 py-2 rounded-full bg-green-500 text-white font-bold text-sm animate-pulse">
-                          В ПРОЦЕССЕ
+                        <span className={`px-4 py-2 rounded-full font-bold text-sm ${evac.inProgress ? 'bg-green-500 text-white animate-pulse' : 'bg-gray-200 text-gray-700'}`}>
+                          {evac.inProgress ? 'В ПРОЦЕССЕ' : 'ОЖИДАНИЕ'}
                         </span>
                       </div>
 

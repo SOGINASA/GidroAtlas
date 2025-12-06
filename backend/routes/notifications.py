@@ -260,10 +260,18 @@ def broadcast_notification():
         # Получаем список пользователей
         role_filter = data.get('role_filter', 'all')
 
+        # Маппинг role к user_type
+        role_to_user_type = {
+            'resident': 'user',
+            'emergency': 'mchs',
+            'admin': 'admin'
+        }
+
         if role_filter == 'all':
             users = User.query.all()
-        elif role_filter in ['resident', 'emergency']:
-            users = User.query.filter_by(role=role_filter).all()
+        elif role_filter in role_to_user_type:
+            user_type = role_to_user_type[role_filter]
+            users = User.query.filter_by(user_type=user_type).all()
         else:
             return jsonify({'error': 'Недопустимое значение role_filter'}), 400
 

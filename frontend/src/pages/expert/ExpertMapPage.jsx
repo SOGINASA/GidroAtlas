@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
 import { MapPin, Layers, Satellite } from 'lucide-react';
+import { getAllSensors } from '../../services/sensorService';
 
 const ExpertMapPage = () => {
   const [filters, setFilters] = useState({
@@ -9,8 +10,26 @@ const ExpertMapPage = () => {
     showSatellite: false
   });
 
-  // Mock sensors count
-  const sensorsCount = 24;
+  const [sensorsCount, setSensorsCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSensorsCount();
+  }, []);
+
+  const loadSensorsCount = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllSensors();
+      const sensors = response.data || [];
+      setSensorsCount(sensors.filter(s => s.status === 'active').length);
+    } catch (error) {
+      console.error('Error loading sensors:', error);
+      setSensorsCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ExpertLayout>
@@ -48,7 +67,11 @@ const ExpertMapPage = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-600">Датчики</p>
-                  <p className="text-base lg:text-lg font-bold text-gray-900">{sensorsCount} активных</p>
+                  {loading ? (
+                    <div className="animate-pulse h-6 w-20 bg-gray-200 rounded"></div>
+                  ) : (
+                    <p className="text-base lg:text-lg font-bold text-gray-900">{sensorsCount} активных</p>
+                  )}
                 </div>
               </div>
 

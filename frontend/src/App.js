@@ -46,8 +46,8 @@ import EmergencyProfile from './pages/emergency/ProfilePage';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <Routes>
           {/* Публичные маршруты */}
           <Route path="/" element={<HomePage />} />
@@ -97,8 +97,8 @@ function App() {
           <Route path="/404" element={<NotFoundPage />} />
           <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
