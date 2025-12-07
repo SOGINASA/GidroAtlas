@@ -21,7 +21,10 @@ import {
   Maximize2,
   X,
   AlertCircle,
-  Info
+  Info,
+  Menu,
+  ChevronLeft,
+  Settings
 } from 'lucide-react';
 import AdminLayout from '../../components/navigation/admin/AdminLayout';
 import {
@@ -35,28 +38,25 @@ import {
 } from '../../services/mapApi';
 
 // =============================
-// MAP TILES (MapTiler)
+// MAP TILES CONFIG
 // =============================
 const MAPTILER_BASE_URL = 'https://api.maptiler.com/maps';
 const MAPTILER_API_KEY = process.env.REACT_APP_MAPTILER_API_KEY;
-
 const HAS_MAPTILER_KEY = Boolean(MAPTILER_API_KEY);
 
 // =============================
-// HYDRO API CONFIG (твоя API)
+// HYDRO API CONFIG
 // =============================
 const HYDRO_API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
 const HYDRO_API_TOKEN = process.env.REACT_APP_API_TOKEN || '';
 
-// === Те же объекты, что на Expert-карте (iOS) ===
-
-// Водоёмы Казахстана (аналог WATER_OBJECTS_KZ из SwiftUI)
+// Водоёмы Казахстана
 const WATER_OBJECTS_KZ = [
   {
     id: 'balhash',
     name: 'Озеро Балхаш',
     region: 'Карагандинская область',
-    condition: 3,        // technicalCategory: 3
+    condition: 3,
     lat: 46.8,
     lng: 74.9
   },
@@ -118,14 +118,14 @@ const WATER_OBJECTS_KZ = [
   }
 ];
 
-// Гидротехнические сооружения (аналог HYDRO_FACILITIES_KZ)
+// Гидротехнические сооружения
 const HYDRO_FACILITIES_KZ = [
   {
     id: 'bukhtarma-hpp',
     name: 'Бухтарминская ГЭС',
     type: 'hydropower',
     region: 'Восточно-Казахстанская область',
-    condition: 3,      // conditionCategory: 3
+    condition: 3,
     lat: 47.4,
     lng: 83.1
   },
@@ -176,13 +176,13 @@ const HYDRO_FACILITIES_KZ = [
   }
 ];
 
-// Критические зоны по рекам (аналог CRITICAL_ZONES_KZ)
+// Критические зоны
 const CRITICAL_ZONES_KZ = [
   {
     id: 'irtysh-pavlodar',
     name: 'Иртыш (Павлодар)',
     region: 'Павлодарская область',
-    level: 'critical',   // .critical
+    level: 'critical',
     lat: 52.3,
     lng: 76.9
   },
@@ -190,7 +190,7 @@ const CRITICAL_ZONES_KZ = [
     id: 'ural-uralsk',
     name: 'Урал (Уральск)',
     region: 'Западно-Казахстанская область',
-    level: 'warning',   // .warning
+    level: 'warning',
     lat: 51.2,
     lng: 51.4
   },
@@ -224,7 +224,6 @@ const apiFetch = async (endpoint, options = {}) => {
 };
 
 const getTileLayerConfig = (view = 'standard') => {
-  // Если нет ключа MapTiler — используем OpenStreetMap
   if (!HAS_MAPTILER_KEY) {
     return {
       url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -310,13 +309,9 @@ const LeafletMap = ({
       zoomControl: false
     });
 
-    // Базовый слой
     const { url, options } = getTileLayerConfig('standard');
+    L.tileLayer(url, options).addTo(mapInstanceRef.current);
 
-L.tileLayer(url, options).addTo(mapInstanceRef.current);
-  
-
-    // Клик по карте в режиме редактирования
     mapInstanceRef.current.on('click', (e) => {
       if (editMode && onMapClick) {
         onMapClick(e.latlng);
@@ -369,11 +364,10 @@ L.tileLayer(url, options).addTo(mapInstanceRef.current);
         });
 
         marker.bindPopup(`
-          <div class="p-2 min-w-[220px]">
-            <h3 class="font-bold text-lg mb-1">${wb.name}</h3>
+          <div class="p-2 min-w-[180px]">
+            <h3 class="font-bold text-base mb-1">${wb.name}</h3>
             <p class="text-xs text-gray-500 mb-2">${wb.region || ''}</p>
             <p class="text-sm mb-1"><span class="font-semibold">Категория:</span> ${wb.condition}</p>
-            <p class="text-xs text-gray-500">[Админская карта: клик по маркеру открывает панель справа]</p>
           </div>
         `);
 
@@ -395,8 +389,8 @@ L.tileLayer(url, options).addTo(mapInstanceRef.current);
         });
 
         marker.bindPopup(`
-          <div class="p-2 min-w-[220px]">
-            <h3 class="font-bold text-lg mb-1">${fac.name}</h3>
+          <div class="p-2 min-w-[180px]">
+            <h3 class="font-bold text-base mb-1">${fac.name}</h3>
             <p class="text-xs text-gray-500 mb-2">${fac.region || ''}</p>
             <p class="text-sm mb-1"><span class="font-semibold">Тип:</span> ${fac.type || '—'}</p>
             <p class="text-sm"><span class="font-semibold">Категория:</span> ${fac.condition}</p>
@@ -411,82 +405,58 @@ L.tileLayer(url, options).addTo(mapInstanceRef.current);
         markersRef.current.push(marker);
       });
     }
-  };
 
-  if (activeLayers.criticalZones && mapObjects.criticalZones) {
-    mapObjects.criticalZones.forEach(zone => {
-      if (!zone.lat || !zone.lng) return;
-  
-      const color = zone.level === 'critical' ? '#EF4444' : '#F97316';
-  
-      const marker = L.marker([zone.lat, zone.lng], {
-        icon: L.divIcon({
-          html: `
-            <div class="relative">
-              <div class="w-10 h-10 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
-                   style="background-color: ${color}">
-                <span class="text-xl">⚠️</span>
+    if (activeLayers.criticalZones && mapObjects.criticalZones) {
+      mapObjects.criticalZones.forEach(zone => {
+        if (!zone.lat || !zone.lng) return;
+    
+        const color = zone.level === 'critical' ? '#EF4444' : '#F97316';
+    
+        const marker = L.marker([zone.lat, zone.lng], {
+          icon: L.divIcon({
+            html: `
+              <div class="relative">
+                <div class="w-10 h-10 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
+                     style="background-color: ${color}">
+                  <span class="text-xl">⚠️</span>
+                </div>
               </div>
-            </div>
-          `,
-          className: 'custom-marker',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20]
-        })
+            `,
+            className: 'custom-marker',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+          })
+        });
+    
+        marker.bindPopup(`
+          <div class="p-2 min-w-[180px]">
+            <h3 class="font-bold text-base mb-1">${zone.name}</h3>
+            <p class="text-xs text-gray-500 mb-2">${zone.region || ''}</p>
+            <p class="text-sm mb-1">
+              <span class="font-semibold">Уровень:</span>
+              ${zone.level === 'critical' ? 'Критический' : 'Предупреждение'}
+            </p>
+          </div>
+        `);
+    
+        marker.addTo(mapInstanceRef.current);
+        markersRef.current.push(marker);
       });
-  
-      marker.bindPopup(`
-        <div class="p-2 min-w-[220px]">
-          <h3 class="font-bold text-lg mb-1">${zone.name}</h3>
-          <p class="text-xs text-gray-500 mb-2">${zone.region || ''}</p>
-          <p class="text-sm mb-1">
-            <span class="font-semibold">Уровень:</span>
-            ${zone.level === 'critical' ? 'Критический' : 'Предупреждение'}
-          </p>
-        </div>
-      `);
-  
-      marker.addTo(mapInstanceRef.current);
-      markersRef.current.push(marker);
-    });
-  }  
+    }
+  };
 
   const changeMapView = () => {
-    const changeMapView = () => {
-      if (!window.L || !mapInstanceRef.current) return;
-      const L = window.L;
-    
-      mapInstanceRef.current.eachLayer((layer) => {
-        if (layer instanceof L.TileLayer) {
-          mapInstanceRef.current.removeLayer(layer);
-        }
-      });
-    
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(mapInstanceRef.current);
-    };
-    
-  };  
-
-  const zoomOut = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.zoomOut();
-    }
-  };
-
-  const fitBounds = () => {
-    if (mapInstanceRef.current && markersRef.current.length > 0 && window.L) {
-      const group = window.L.featureGroup(markersRef.current);
-      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
-    }
-  };
-
-  const resetView = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([48.0196, 66.9237], 6);
-    }
+    if (!window.L || !mapInstanceRef.current) return;
+    const L = window.L;
+  
+    mapInstanceRef.current.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        mapInstanceRef.current.removeLayer(layer);
+      }
+    });
+  
+    const { url, options } = getTileLayerConfig(mapView);
+    L.tileLayer(url, options).addTo(mapInstanceRef.current);
   };
 
   return (
@@ -494,18 +464,11 @@ L.tileLayer(url, options).addTo(mapInstanceRef.current);
       <div ref={mapRef} className="absolute inset-0 bg-gray-200" />
       
       {!window.L && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-xl">
-            <Globe className="w-24 h-24 text-purple-400 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-semibold mb-2">Загрузка карты...</p>
-            <p className="text-gray-500 text-sm mb-4">
-              Подключите Leaflet для отображения карты
-            </p>
-            <div className="text-left bg-gray-100 rounded-lg p-4 text-xs font-mono">
-              <p className="text-purple-600 mb-1">{`<!-- В index.html -->`}</p>
-              <p className="text-gray-700 mb-2">{`<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />`}</p>
-              <p className="text-gray-700">{`<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>`}</p>
-            </div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="text-center bg-white/90 backdrop-blur-sm rounded-lg p-6 shadow-xl mx-4">
+            <Globe className="w-16 h-16 text-purple-400 mx-auto mb-3" />
+            <p className="text-gray-600 font-semibold mb-1">Загрузка карты...</p>
+            <p className="text-gray-500 text-xs">Подключите Leaflet</p>
           </div>
         </div>
       )}
@@ -518,8 +481,10 @@ L.tileLayer(url, options).addTo(mapInstanceRef.current);
 // =============================
 const AdminMap = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [showLayers, setShowLayers] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showLayersModal, setShowLayersModal] = useState(false);
+  const [showObjectsModal, setShowObjectsModal] = useState(false);
   const [selectedObject, setSelectedObject] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [mapView, setMapView] = useState('standard');
@@ -547,12 +512,11 @@ const AdminMap = () => {
     criticalZones: [] 
   });
 
-  // === Создание объекта ===
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [pendingCoords, setPendingCoords] = useState(null);
   const [newObject, setNewObject] = useState({
-    objectKind: 'waterBody',   // 'waterBody' | 'facility'
+    objectKind: 'waterBody',
     name: '',
     region: '',
     condition: 3,
@@ -568,8 +532,6 @@ const AdminMap = () => {
 
   const loadMapData = async () => {
     try {
-      console.log('Загрузка данных карты с фильтрами:', filters);
-
       const data = await getAllMapData(filters);
 
       if (data) {
@@ -611,7 +573,6 @@ const AdminMap = () => {
         });
 
       } else {
-        // Фоллбэк на «экспертные» константы
         setMapObjects({
           waterBodies: WATER_OBJECTS_KZ,
           facilities: HYDRO_FACILITIES_KZ,
@@ -654,6 +615,10 @@ const AdminMap = () => {
 
   const handleObjectClick = (object) => {
     setSelectedObject(object);
+    // На мобильных закрываем другие модалки
+    setShowObjectsModal(false);
+    setShowFiltersModal(false);
+    setShowLayersModal(false);
   };
 
   const handleDeleteObject = async (object) => {
@@ -702,7 +667,6 @@ const AdminMap = () => {
         try {
           const data = JSON.parse(event.target.result);
           setMapObjects(data);
-          console.log('Данные импортированы:', data);
         } catch (error) {
           console.error('Ошибка импорта:', error);
         }
@@ -723,7 +687,6 @@ const AdminMap = () => {
     return colors[condition] || 'bg-gray-500';
   };
 
-  // === Клик по карте в режиме редактора: запоминаем координаты и подставляем в форму ===
   const handleMapClick = (latlng) => {
     setPendingCoords(latlng);
     if (showCreateForm) {
@@ -735,16 +698,17 @@ const AdminMap = () => {
     }
   };
 
-  // === Работа с формой создания объекта ===
   const openCreateForm = () => {
     setCreateError(null);
     setShowCreateForm(true);
-    setEditMode(true); // включаем режим редактирования, чтобы клик по карте давал координаты
+    setEditMode(true);
+    setShowMobileMenu(false);
   };
 
   const closeCreateForm = () => {
     setShowCreateForm(false);
     setCreateError(null);
+    setEditMode(false);
     setNewObject({
       objectKind: 'waterBody',
       name: '',
@@ -781,14 +745,12 @@ const AdminMap = () => {
       let created;
       if (newObject.objectKind === 'waterBody') {
         created = await createWaterBody(payload);
-
         setMapObjects(prev => ({
           ...prev,
           waterBodies: [...prev.waterBodies, created]
         }));
       } else {
         created = await createHydroFacility(payload);
-
         setMapObjects(prev => ({
           ...prev,
           facilities: [...prev.facilities, created]
@@ -805,8 +767,28 @@ const AdminMap = () => {
   return (
     <AdminLayout>
       <div className="h-screen bg-gray-50 flex flex-col">
-        {/* HEADER */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-4 shadow-lg">
+        {/* MOBILE HEADER */}
+        <div className="lg:hidden bg-gradient-to-r from-purple-600 to-pink-500 text-white px-4 py-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Globe className="w-6 h-6" />
+              <div>
+                <h1 className="text-lg font-bold">Админ карта</h1>
+                <p className="text-purple-100 text-xs">Управление объектами</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="w-10 h-10 flex items-center justify-center bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* DESKTOP HEADER */}
+        <div className="hidden lg:block bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-4 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Globe className="w-8 h-8" />
@@ -816,7 +798,7 @@ const AdminMap = () => {
               </div>
             </div>
             
-            <div className="hidden lg:flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
@@ -836,16 +818,16 @@ const AdminMap = () => {
         </div>
 
         {/* MAIN LAYOUT */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* LEFT SIDEBAR */}
-          <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* DESKTOP LEFT SIDEBAR */}
+          <div className="hidden lg:block w-80 bg-white border-r border-gray-200 flex-col overflow-hidden">
             {/* Search */}
             <div className="p-4 border-b border-gray-200">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Поиск объектов на карте..."
+                  placeholder="Поиск объектов..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -853,24 +835,20 @@ const AdminMap = () => {
               </div>
             </div>
 
-            {/* Buttons row */}
+            {/* Desktop Action Buttons */}
             <div className="p-4 border-b border-gray-200">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 mb-2">
                 <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                    showFilters ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  onClick={() => setShowFiltersModal(!showFiltersModal)}
+                  className="flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   <Filter className="w-4 h-4" />
                   <span className="text-sm font-medium">Фильтры</span>
                 </button>
                 
                 <button
-                  onClick={() => setShowLayers(!showLayers)}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                    showLayers ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  onClick={() => setShowLayersModal(!showLayersModal)}
+                  className="flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   <Layers className="w-4 h-4" />
                   <span className="text-sm font-medium">Слои</span>
@@ -878,7 +856,7 @@ const AdminMap = () => {
 
                 <button
                   onClick={() => setEditMode(!editMode)}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center justify-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
                     editMode ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -888,7 +866,7 @@ const AdminMap = () => {
 
                 <button
                   onClick={openCreateForm}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   <span className="text-sm font-medium">Добавить</span>
@@ -897,47 +875,17 @@ const AdminMap = () => {
               {editMode && (
                 <p className="mt-2 text-xs text-orange-600 flex items-center">
                   <AlertCircle className="w-4 h-4 mr-1" />
-                  Режим редактора: клик по карте даст координаты
+                  Режим редактора активен
                 </p>
               )}
             </div>
 
-            {/* Layers */}
-            {showLayers && (
-              <div className="p-4 border-b border-gray-200 bg-purple-50">
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center">
-                  <Layers className="w-5 h-5 text-purple-600 mr-2" />
-                  Управление слоями
-                </h3>
-                <div className="space-y-2">
-                  {layerOptions.map((layer) => {
-                    const Icon = layer.icon;
-                    return (
-                      <label
-                        key={layer.id}
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={activeLayers[layer.id]}
-                          onChange={() => toggleLayer(layer.id)}
-                          className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
-                        />
-                        <Icon className={`w-5 h-5 ${layer.color}`} />
-                        <span className="text-sm font-medium text-gray-700">{layer.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Filters */}
-            {showFilters && (
+            {/* Desktop Filters Panel */}
+            {showFiltersModal && (
               <div className="p-4 border-b border-gray-200 bg-blue-50">
                 <h3 className="font-bold text-gray-900 mb-3 flex items-center">
                   <Filter className="w-5 h-5 text-blue-600 mr-2" />
-                  Фильтрация объектов
+                  Фильтрация
                 </h3>
                 <div className="space-y-3">
                   <div>
@@ -980,7 +928,37 @@ const AdminMap = () => {
               </div>
             )}
 
-            {/* List of objects */}
+            {/* Desktop Layers Panel */}
+            {showLayersModal && (
+              <div className="p-4 border-b border-gray-200 bg-purple-50">
+                <h3 className="font-bold text-gray-900 mb-3 flex items-center">
+                  <Layers className="w-5 h-5 text-purple-600 mr-2" />
+                  Слои карты
+                </h3>
+                <div className="space-y-2">
+                  {layerOptions.map((layer) => {
+                    const Icon = layer.icon;
+                    return (
+                      <label
+                        key={layer.id}
+                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={activeLayers[layer.id]}
+                          onChange={() => toggleLayer(layer.id)}
+                          className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                        />
+                        <Icon className={`w-5 h-5 ${layer.color}`} />
+                        <span className="text-sm font-medium text-gray-700">{layer.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Desktop Objects List */}
             <div className="flex-1 overflow-y-auto p-4">
               <h3 className="font-bold text-gray-900 mb-3 flex items-center">
                 <MapPin className="w-5 h-5 text-purple-600 mr-2" />
@@ -1048,7 +1026,7 @@ const AdminMap = () => {
               </div>
             </div>
 
-            {/* Export/Import */}
+            {/* Desktop Export/Import */}
             <div className="p-4 border-t border-gray-200 bg-gray-50">
               <div className="grid grid-cols-2 gap-2">
                 <button 
@@ -1081,7 +1059,7 @@ const AdminMap = () => {
               onMapClick={handleMapClick}
             />
 
-            {/* Map controls (визуальные, как были) */}
+            {/* Map controls */}
             <div className="absolute top-4 right-4 space-y-2 z-[1000]">
               <div className="bg-white rounded-lg shadow-lg p-2 space-y-2">
                 <button className="w-10 h-10 flex items-center justify-center bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
@@ -1097,21 +1075,10 @@ const AdminMap = () => {
                   <Navigation className="w-5 h-5" />
                 </button>
               </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-2">
-                <button 
-                  onClick={() => setMapView('hybrid')}
-                  className={`w-full px-3 py-2 text-sm rounded transition-colors ${
-                    mapView === 'hybrid' ? 'bg-purple-500 text-white' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  Гибрид
-                </button>
-              </div>
             </div>
 
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 max-w-xs z-[1000]">
+            {/* Legend - скрываем на маленьких экранах */}
+            <div className="hidden md:block absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 max-w-xs z-[1000]">
               <h4 className="font-bold text-gray-900 mb-3 flex items-center">
                 <Info className="w-5 h-5 text-purple-600 mr-2" />
                 Легенда
@@ -1119,31 +1086,31 @@ const AdminMap = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span>Категория 1 - Отличное</span>
+                  <span>Категория 1</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-lime-500"></div>
-                  <span>Категория 2 - Хорошее</span>
+                  <span>Категория 2</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                  <span>Категория 3 - Среднее</span>
+                  <span>Категория 3</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                  <span>Категория 4 - Плохое</span>
+                  <span>Категория 4</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span>Категория 5 - Критическое</span>
+                  <span>Категория 5</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT PANEL: selected object */}
+          {/* DESKTOP RIGHT PANEL: selected object */}
           {selectedObject && (
-            <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
+            <div className="hidden lg:block w-96 bg-white border-l border-gray-200 flex flex-col">
               <div className="p-4 border-b border-gray-200 bg-purple-50">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -1191,24 +1158,12 @@ const AdminMap = () => {
                     </div>
                   </div>
                 </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-blue-900 mb-1">Административная информация</p>
-                      <p className="text-sm text-blue-800">
-                        Вы можете редактировать, удалять или просматривать детальную информацию об этом объекте.
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="p-4 border-t border-gray-200 space-y-2">
                 <button className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold">
                   <Eye className="w-5 h-5" />
-                  <span>Просмотреть детали</span>
+                  <span>Просмотреть</span>
                 </button>
                 
                 <button className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold">
@@ -1221,97 +1176,508 @@ const AdminMap = () => {
                   className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold"
                 >
                   <Trash2 className="w-5 h-5" />
-                  <span>Удалить объект</span>
+                  <span>Удалить</span>
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* CREATE OBJECT FORM (простая форма) */}
+        {/* MOBILE BOTTOM NAVIGATION */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-2 z-[1000] safe-area-bottom">
+          <div className="grid grid-cols-5 gap-1">
+            <button
+              onClick={() => {
+                setShowFiltersModal(true);
+                setShowLayersModal(false);
+                setShowObjectsModal(false);
+              }}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Filter className="w-5 h-5 text-purple-600 mb-1" />
+              <span className="text-xs font-medium text-gray-700">Фильтры</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowLayersModal(true);
+                setShowFiltersModal(false);
+                setShowObjectsModal(false);
+              }}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Layers className="w-5 h-5 text-purple-600 mb-1" />
+              <span className="text-xs font-medium text-gray-700">Слои</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowObjectsModal(true);
+                setShowFiltersModal(false);
+                setShowLayersModal(false);
+              }}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <MapPin className="w-5 h-5 text-purple-600 mb-1" />
+              <span className="text-xs font-medium text-gray-700">Объекты</span>
+            </button>
+
+            <button
+              onClick={openCreateForm}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-green-50 hover:bg-green-100 transition-colors"
+            >
+              <Plus className="w-5 h-5 text-green-600 mb-1" />
+              <span className="text-xs font-medium text-green-700">Добавить</span>
+            </button>
+
+            <button
+              onClick={() => setShowMobileMenu(true)}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Settings className="w-5 h-5 text-gray-600 mb-1" />
+              <span className="text-xs font-medium text-gray-700">Ещё</span>
+            </button>
+          </div>
+        </div>
+
+        {/* MOBILE MODALS */}
+        
+        {/* Mobile Menu Modal */}
+        {showMobileMenu && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-[2000]"
+              onClick={() => setShowMobileMenu(false)}
+            />
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[2100] pb-safe animate-slide-up">
+              <div className="px-4 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-900">Дополнительно</h3>
+                  <button
+                    onClick={() => setShowMobileMenu(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-2">
+                <button
+                  onClick={() => {
+                    setEditMode(!editMode);
+                    setShowMobileMenu(false);
+                  }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    editMode ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <Edit3 className="w-5 h-5" />
+                  <span className="font-medium">Режим редактора</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleExport();
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 bg-blue-500 text-white rounded-lg"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="font-medium">Экспорт данных</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleImport();
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 bg-green-500 text-white rounded-lg"
+                >
+                  <Upload className="w-5 h-5" />
+                  <span className="font-medium">Импорт данных</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Mobile Filters Modal */}
+        {showFiltersModal && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-[2000]"
+              onClick={() => setShowFiltersModal(false)}
+            />
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[2100] max-h-[80vh] overflow-y-auto pb-safe">
+              <div className="sticky top-0 bg-white px-4 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Filter className="w-5 h-5 text-blue-600 mr-2" />
+                    Фильтры
+                  </h3>
+                  <button
+                    onClick={() => setShowFiltersModal(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Область</label>
+                  <select 
+                    value={filters.region}
+                    onChange={(e) => setFilters({...filters, region: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Все области</option>
+                    <option value="almaty">Алматинская</option>
+                    <option value="pavlodar">Павлодарская</option>
+                    <option value="vko">ВКО</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Состояние</label>
+                  <select 
+                    value={filters.condition}
+                    onChange={(e) => setFilters({...filters, condition: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Все</option>
+                    <option value="1">Категория 1</option>
+                    <option value="2">Категория 2</option>
+                    <option value="3">Категория 3</option>
+                    <option value="4">Категория 4</option>
+                    <option value="5">Категория 5</option>
+                  </select>
+                </div>
+
+                <button 
+                  onClick={() => {
+                    loadMapData();
+                    setShowFiltersModal(false);
+                  }}
+                  className="w-full bg-blue-500 text-white py-4 rounded-xl hover:bg-blue-600 transition-colors text-base font-semibold"
+                >
+                  Применить фильтры
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Mobile Layers Modal */}
+        {showLayersModal && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-[2000]"
+              onClick={() => setShowLayersModal(false)}
+            />
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[2100] max-h-[80vh] overflow-y-auto pb-safe">
+              <div className="sticky top-0 bg-white px-4 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Layers className="w-5 h-5 text-purple-600 mr-2" />
+                    Слои карты
+                  </h3>
+                  <button
+                    onClick={() => setShowLayersModal(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-2">
+                {layerOptions.map((layer) => {
+                  const Icon = layer.icon;
+                  return (
+                    <label
+                      key={layer.id}
+                      className="flex items-center space-x-3 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={activeLayers[layer.id]}
+                        onChange={() => toggleLayer(layer.id)}
+                        className="w-6 h-6 text-purple-600 rounded focus:ring-purple-500"
+                      />
+                      <Icon className={`w-6 h-6 ${layer.color}`} />
+                      <span className="text-base font-medium text-gray-700">{layer.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Mobile Objects Modal */}
+        {showObjectsModal && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-[2000]"
+              onClick={() => setShowObjectsModal(false)}
+            />
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[2100] max-h-[80vh] overflow-y-auto pb-safe">
+              <div className="sticky top-0 bg-white px-4 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <MapPin className="w-5 h-5 text-purple-600 mr-2" />
+                    Объекты
+                  </h3>
+                  <button
+                    onClick={() => setShowObjectsModal(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+
+                {/* Mobile Search */}
+                <div className="mt-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Поиск объектов..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-4">
+                {/* Водоёмы */}
+                <div>
+                  <p className="text-sm font-semibold text-gray-500 uppercase mb-2 flex items-center">
+                    <Droplets className="w-4 h-4 mr-1" />
+                    Водоёмы ({mapObjects.waterBodies.length})
+                  </p>
+                  <div className="space-y-2">
+                    {mapObjects.waterBodies
+                      .filter(wb => !searchQuery || wb.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((wb) => (
+                        <div
+                          key={wb.id}
+                          onClick={() => handleObjectClick({...wb, type: 'waterBody'})}
+                          className="p-4 rounded-xl border-2 border-gray-200 bg-white active:bg-purple-50"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900">{wb.name}</p>
+                              <p className="text-sm text-gray-600">{wb.region}</p>
+                            </div>
+                            <div className={`w-4 h-4 rounded-full ${getConditionColor(wb.condition)}`} />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* ГТС */}
+                <div>
+                  <p className="text-sm font-semibold text-gray-500 uppercase mb-2 flex items-center">
+                    <Zap className="w-4 h-4 mr-1" />
+                    ГТС ({mapObjects.facilities.length})
+                  </p>
+                  <div className="space-y-2">
+                    {mapObjects.facilities
+                      .filter(fac => !searchQuery || fac.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((fac) => (
+                        <div
+                          key={fac.id}
+                          onClick={() => handleObjectClick({...fac, type: 'facility'})}
+                          className="p-4 rounded-xl border-2 border-gray-200 bg-white active:bg-purple-50"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900">{fac.name}</p>
+                              <p className="text-sm text-gray-600">{fac.region}</p>
+                            </div>
+                            <div className={`w-4 h-4 rounded-full ${getConditionColor(fac.condition)}`} />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Mobile Selected Object Modal */}
+        {selectedObject && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-[2000]"
+              onClick={() => setSelectedObject(null)}
+            />
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[2100] max-h-[85vh] overflow-y-auto pb-safe">
+              <div className="sticky top-0 bg-purple-50 px-4 py-4 border-b border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-xl mb-1">{selectedObject.name}</h3>
+                    <p className="text-sm text-gray-600">{selectedObject.region}</p>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedObject(null)}
+                    className="w-8 h-8 flex items-center justify-center bg-white rounded-lg"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Состояние</p>
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-14 h-14 rounded-full ${getConditionColor(selectedObject.condition)} flex items-center justify-center text-white font-bold text-xl`}>
+                      {selectedObject.condition}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 text-lg">Категория {selectedObject.condition}</p>
+                      <p className="text-sm text-gray-600">
+                        {selectedObject.condition === 1 ? 'Отличное' :
+                        selectedObject.condition === 2 ? 'Хорошее' :
+                        selectedObject.condition === 3 ? 'Среднее' :
+                        selectedObject.condition === 4 ? 'Плохое' : 'Критическое'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Координаты</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Широта:</span>
+                      <span className="font-mono font-semibold">{selectedObject.lat}°</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Долгота:</span>
+                      <span className="font-mono font-semibold">{selectedObject.lng}°</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <button className="w-full flex items-center justify-center space-x-2 px-4 py-4 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors font-semibold">
+                    <Eye className="w-5 h-5" />
+                    <span>Просмотреть детали</span>
+                  </button>
+                  
+                  <button className="w-full flex items-center justify-center space-x-2 px-4 py-4 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors font-semibold">
+                    <Edit3 className="w-5 h-5" />
+                    <span>Редактировать</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      handleDeleteObject(selectedObject);
+                      setSelectedObject(null);
+                    }}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-4 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-semibold"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span>Удалить объект</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* CREATE OBJECT FORM - адаптивная версия */}
         {showCreateForm && (
           <>
             <div 
               className="fixed inset-0 bg-black/40 z-[2000]"
               onClick={closeCreateForm}
             />
-            <div className="fixed inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 top-16 md:top-20 w-auto md:w-full md:max-w-xl bg-white rounded-2xl shadow-2xl z-[2100] overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+            <div className="fixed inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 top-4 md:top-16 w-auto md:w-full md:max-w-xl bg-white rounded-2xl shadow-2xl z-[2100] overflow-hidden max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white px-4 md:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Добавление объекта на карту</h2>
+                  <h2 className="text-base md:text-lg font-bold text-gray-900">Добавление объекта</h2>
                   <p className="text-xs text-gray-500">
-                    Кликните по карте в режиме редактора, чтобы быстро подставить координаты
+                    Кликните по карте для координат
                   </p>
                 </div>
                 <button
                   onClick={closeCreateForm}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-gray-200"
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
                 >
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
-                {/* Тип объекта */}
+              <form onSubmit={handleCreateSubmit} className="p-4 md:p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setNewObject(prev => ({ ...prev, objectKind: 'waterBody' }))}
-                    className={`flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium border ${
+                    className={`flex items-center justify-center space-x-2 px-3 py-3 rounded-xl text-sm font-medium border ${
                       newObject.objectKind === 'waterBody'
                         ? 'bg-blue-50 text-blue-700 border-blue-400'
                         : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                     }`}
                   >
-                    <Droplets className="w-4 h-4" />
+                    <Droplets className="w-5 h-5" />
                     <span>Водоём</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewObject(prev => ({ ...prev, objectKind: 'facility' }))}
-                    className={`flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium border ${
+                    className={`flex items-center justify-center space-x-2 px-3 py-3 rounded-xl text-sm font-medium border ${
                       newObject.objectKind === 'facility'
                         ? 'bg-orange-50 text-orange-700 border-orange-400'
                         : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                     }`}
                   >
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-5 h-5" />
                     <span>ГТС</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Название объекта</label>
-                    <input
-                      type="text"
-                      value={newObject.name}
-                      onChange={(e) => setNewObject(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                      placeholder="Озеро Балхаш"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Регион / область</label>
-                    <input
-                      type="text"
-                      value={newObject.region}
-                      onChange={(e) => setNewObject(prev => ({ ...prev, region: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                      placeholder="Алматинская область"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-2">Название</label>
+                  <input
+                    type="text"
+                    value={newObject.name}
+                    onChange={(e) => setNewObject(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                    placeholder="Озеро Балхаш"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-2">Регион</label>
+                  <input
+                    type="text"
+                    value={newObject.region}
+                    onChange={(e) => setNewObject(prev => ({ ...prev, region: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                    placeholder="Алматинская область"
+                    required
+                  />
                 </div>
 
                 {newObject.objectKind === 'facility' && (
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Тип ГТС</label>
+                    <label className="block text-sm font-semibold text-gray-600 mb-2">Тип ГТС</label>
                     <select
                       value={newObject.facilityType}
                       onChange={(e) => setNewObject(prev => ({ ...prev, facilityType: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="hydropower">ГЭС</option>
                       <option value="dam">Плотина</option>
@@ -1321,13 +1687,13 @@ const AdminMap = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-1">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Категория</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-600 mb-2">Категория</label>
                     <select
                       value={newObject.condition}
                       onChange={(e) => setNewObject(prev => ({ ...prev, condition: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
                     >
                       <option value={1}>1</option>
                       <option value={2}>2</option>
@@ -1337,41 +1703,41 @@ const AdminMap = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Широта (lat)</label>
+                    <label className="block text-sm font-semibold text-gray-600 mb-2">Широта</label>
                     <input
                       type="number"
                       step="0.000001"
                       value={newObject.lat}
                       onChange={(e) => setNewObject(prev => ({ ...prev, lat: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                      placeholder="48.019600"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                      placeholder="48.01"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Долгота (lng)</label>
+                    <label className="block text-sm font-semibold text-gray-600 mb-2">Долгота</label>
                     <input
                       type="number"
                       step="0.000001"
                       value={newObject.lng}
                       onChange={(e) => setNewObject(prev => ({ ...prev, lng: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                      placeholder="66.923700"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                      placeholder="66.92"
                       required
                     />
                   </div>
                 </div>
 
                 {pendingCoords && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 flex items-center justify-between">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">
                     <span>
-                      Последний клик по карте: lat {pendingCoords.lat.toFixed(6)}, lng {pendingCoords.lng.toFixed(6)}
+                      Клик по карте: {pendingCoords.lat.toFixed(6)}, {pendingCoords.lng.toFixed(6)}
                     </span>
                   </div>
                 )}
 
                 {createError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-800 flex items-center space-x-2">
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>{createError}</span>
                   </div>
@@ -1381,15 +1747,15 @@ const AdminMap = () => {
                   <button
                     type="button"
                     onClick={closeCreateForm}
-                    className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="px-5 py-3 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600"
+                    className="px-6 py-3 rounded-xl bg-green-500 text-white text-sm font-semibold hover:bg-green-600"
                   >
-                    Сохранить объект
+                    Сохранить
                   </button>
                 </div>
               </form>
