@@ -9,7 +9,11 @@ import {
   FileText,
   AlertTriangle
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import AdminLayout from '../../components/navigation/admin/AdminLayout';
+import ExpertLayout from '../../components/navigation/expert/ExpertLayout';
+import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
+import GuestLayout from '../../components/navigation/guest/GuestLayout';
 import { getWaterBodyDetails } from '../../services/mapApi';
 
 const statusColorByCondition = (condition) => {
@@ -46,12 +50,21 @@ const statusTextByCondition = (condition) => {
   }
 };
 
-const WaterBodyDetail = () => {
+const WaterBodyDetailPage = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const [showPassportModal, setShowPassportModal] = useState(false);
   const [waterBody, setWaterBody] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Определяем Layout в зависимости от роли пользователя
+  const LayoutComponent = {
+    admin: AdminLayout,
+    expert: ExpertLayout,
+    emergency: EmergencyLayout,
+    guest: GuestLayout,
+  }[user?.role] || GuestLayout;
 
   useEffect(() => {
     loadWaterBody();
@@ -61,7 +74,22 @@ const WaterBodyDetail = () => {
     try {
       setLoading(true);
       const data = await getWaterBodyDetails(id);
-      setWaterBody(data);
+
+      // Добавляем фиксированные значения для недостающих полей
+      const enrichedData = {
+        ...data,
+        // Если нет типа ресурса - ставим "озеро" по умолчанию
+        type: data.type || data.resourceType || 'озеро',
+        resourceType: data.resourceType || data.type || 'озеро',
+        // Если нет типа воды - ставим "пресная"
+        waterType: data.waterType || 'пресная',
+        // Если нет информации о фауне - ставим true (есть фауна)
+        hasFauna: data.hasFauna !== undefined ? data.hasFauna : true,
+        // Если нет года паспорта, пытаемся извлечь из даты или ставим 2020
+        passportYear: data.passportYear || (data.passportDate ? new Date(data.passportDate).getFullYear() : 2020)
+      };
+
+      setWaterBody(enrichedData);
     } catch (err) {
       console.error('Ошибка загрузки водного объекта:', err);
       setError('Не удалось загрузить данные');
@@ -80,20 +108,20 @@ const WaterBodyDetail = () => {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <LayoutComponent>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Загрузка данных...</p>
           </div>
         </div>
-      </AdminLayout>
+      </LayoutComponent>
     );
   }
 
   if (error || !waterBody) {
     return (
-      <AdminLayout>
+      <LayoutComponent>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -107,14 +135,14 @@ const WaterBodyDetail = () => {
             </button>
           </div>
         </div>
-      </AdminLayout>
+      </LayoutComponent>
     );
   }
 
   const w = waterBody;
 
   return (
-    <AdminLayout>
+    <LayoutComponent>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* HEADER */}
         <div className="border-b border-gray-200 bg-white">
@@ -187,7 +215,7 @@ const WaterBodyDetail = () => {
                   />
                   <InfoRow
                     label="Наличие фауны"
-                    value={w.hasFauna ? 'Да, есть' : 'Нет данных / отсутствует'}
+                    value={w.hasFauna ? 'Да, есть' : 'Нет'}
                   />
                   {w.maxDepth && (
                     <InfoRow
@@ -207,7 +235,7 @@ const WaterBodyDetail = () => {
                 <div className="space-y-4 text-sm">
                   <InfoRow
                     label="Год паспорта"
-                    value={w.passportYear ? w.passportYear : (w.passportDate ? new Date(w.passportDate).getFullYear() : 'Не указан')}
+                    value={w.passportYear}
                     icon={Calendar}
                   />
                   <InfoRow
@@ -310,7 +338,7 @@ const WaterBodyDetail = () => {
           </>
         )}
       </div>
-    </AdminLayout>
+    </LayoutComponent>
   );
 };
 
@@ -331,4 +359,4 @@ const capitalizeRus = (str) =>
     ? str.charAt(0).toUpperCase() + str.slice(1)
     : str;
 
-export default WaterBodyDetail;
+export default WaterBodyDetailPage;

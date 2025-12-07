@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Search, Filter, MapPin, TrendingUp, TrendingDown, Droplets, AlertTriangle } from 'lucide-react';
 import { getWaterBodies } from '../../services/waterBodyService';
 import { getAllSensors } from '../../services/sensorService';
 
 const WaterBodiesManagement = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -352,7 +354,10 @@ const WaterBodiesManagement = () => {
                     </div>
                   </div>
 
-                  <button className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                  <button
+                    onClick={() => navigate(`/detail/waterbody/${body.id}`)}
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  >
                     Подробнее
                   </button>
                 </div>

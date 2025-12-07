@@ -211,7 +211,10 @@ const GuestFacilitiesPage = () => {
                         Кат. {facility.technicalCondition}
                       </span>
                     </div>
-                    <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+                    <button
+                      onClick={() => window.location.href = `/guest/facility/${facility.id}`}
+                      className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                    >
                       Подробнее →
                     </button>
                   </div>

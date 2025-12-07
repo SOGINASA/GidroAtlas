@@ -153,7 +153,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick, waterBodies, f
                 ${zone.level === 'critical' ? '⚠️ КРИТИЧЕСКИЙ УРОВЕНЬ' : '⚡ ПРЕДУПРЕЖДЕНИЕ'}
               </p>
             </div>
-            <button onclick="window.navigateToCriticalZone(${zone.id})" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold transition-colors">
+            <button onclick="window.navigateToCriticalZone('${zone.id}')" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -215,7 +215,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick, waterBodies, f
                 </span>
               </div>
             </div>
-            <button onclick="window.navigateToWaterBody(${wb.id})" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
+            <button onclick="window.navigateToWaterBody('${wb.id}')" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -277,7 +277,7 @@ const LeafletMap = ({ activeLayer, selectedRegion, onMarkerClick, waterBodies, f
                 </span>
               </div>
             </div>
-            <button onclick="window.navigateToFacility(${facility.id})" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
+            <button onclick="window.navigateToFacility('${facility.id}')" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -325,13 +325,13 @@ const EmergencyMap = () => {
   // Глобальные функции для навигации из popup
   useEffect(() => {
     window.navigateToWaterBody = (id) => {
-      navigate(`/admin/waterbody/${id}`);
+      navigate(`/detail/waterbody/${id}`);
     };
     window.navigateToFacility = (id) => {
-      navigate(`/admin/facility/${id}`);
+      navigate(`/detail/facility/${id}`);
     };
     window.navigateToCriticalZone = (id) => {
-      navigate(`/admin/critical-zone/${id}`);
+      navigate(`/detail/critical-zone/${id}`);
     };
     return () => {
       delete window.navigateToWaterBody;

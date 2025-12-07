@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import GuestLayout from '../../components/navigation/guest/GuestLayout';
-import { 
-  MapPin, 
-  Droplets, 
-  Zap, 
-  X, 
-  Info, 
-  AlertCircle, 
+import {
+  MapPin,
+  Droplets,
+  Zap,
+  X,
+  Info,
+  AlertCircle,
   Loader2,
   Layers,
   Filter as FilterIcon,
   Compass,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 
 // =====================
@@ -286,7 +287,7 @@ const GuestLeafletMap = ({
                 <span class="text-sm font-medium">${statusLabel}</span>
               </div>
             </div>
-            <button onclick="alert('Для детальной информации войдите в систему')" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
+            <button onclick="window.location.href='/guest/waterbody/${wb.id}'" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -353,7 +354,7 @@ const GuestLeafletMap = ({
                   : ''
               }
             </div>
-            <button onclick="alert('Для детальной информации войдите в систему')" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
+            <button onclick="window.location.href='/guest/facility/${f.id}'" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-semibold transition-colors">
               Подробнее
             </button>
           </div>
@@ -908,13 +909,29 @@ const GuestMapPage = () => {
                 </div>
               </div>
 
-              {/* Login Button */}
-              <button
-                onClick={() => (window.location.href = '/login')}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg"
-              >
-                Войти для полного доступа
-              </button>
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                {selectedObject.id && selectedObject.objectType && (
+                  <button
+                    onClick={() => {
+                      const route = selectedObject.objectType === 'waterbody'
+                        ? `/guest/waterbody/${selectedObject.id}`
+                        : `/guest/facility/${selectedObject.id}`;
+                      window.location.href = route;
+                    }}
+                    className="flex-1 bg-sky-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-sky-700 transition-all shadow-lg flex items-center justify-center space-x-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Подробнее</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => (window.location.href = '/login')}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg"
+                >
+                  Войти
+                </button>
+              </div>
             </div>
           </div>
         </>
