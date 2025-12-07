@@ -36,28 +36,6 @@ class AuthManager: ObservableObject {
         APIClient.shared.authToken = nil
     }
     
-    /// Быстрый вход тестовым администратором GidroAtlas
-    func loginAsTestAdmin() {
-        isLoading = false
-        errorMessage = nil
-        
-        // Порядок аргументов подгоняем под твой init User
-        // init(id: UUID, name: String, email: String, role: UserRole, phone: String?)
-        let admin = User(
-            id: UUID(),                          // <-- было String, теперь UUID
-            name: "Test Admin",
-            email: "admin@gidroatlas.kz",
-            role: .admin,
-            phone: "+7 777 000 00 00"
-        )
-        
-        currentUser = admin
-        isAuthenticated = true
-        
-        // Для локальных тестов токен не нужен
-        APIClient.shared.authToken = nil
-    }
-    
     // MARK: - Backend auth
     
     /// Обычный вход через бэкенд

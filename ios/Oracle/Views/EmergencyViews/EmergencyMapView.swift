@@ -1,359 +1,371 @@
 import SwiftUI
 import MapKit
 
-struct EmergencyMapView: View {
-    @EnvironmentObject var waterStore: WaterObjectStore
-
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 48.0, longitude: 68.0),
-        span: MKCoordinateSpan(latitudeDelta: 15.0, longitudeDelta: 20.0)
-    )
-
-    @State private var selectedObject: WaterObject? = nil
-
-    /// Критические объекты: состояние 4–5 или высокий PriorityScore
-    private var criticalObjects: [WaterObject] {
-        waterStore.objects
-            .filter { $0.technicalCondition >= 4 || $0.priorityLevel == .high }
-            .sorted {
-                if $0.technicalCondition == $1.technicalCondition {
-                    return $0.priorityScore > $1.priorityScore
-                }
-                return $0.technicalCondition > $1.technicalCondition
-            }
+// Какую карточку показывать снизу
+enum EmergencyMapSheet: Identifiable {
+    case sensor(Sensor)
+    case resident(Resident)
+    case evacPoint(EvacuationPoint)
+    
+    var id: String {
+        switch self {
+        case .sensor(let s):     return "sensor-\(s.id)"
+        case .resident(let r):   return "resident-\(r.id)"
+        case .evacPoint(let p):  return "point-\(p.id)"
+        }
     }
+}
 
+struct EmergencyMapView: View {
+    @EnvironmentObject var sensorStore: SensorStore
+    
+    @State private var region = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 54.8656, longitude: 69.1395),
+        span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+    )
+    
+    @State private var residents: [Resident] = Resident.testResidents
+    @State private var evacPoints: [EvacuationPoint] = EvacuationPoint.testPoints
+    
+    @State private var showRiskZones = true
+    @State private var showSensors = true
+    @State private var showResidents = false
+    @State private var showEvacPoints = false
+    @State private var mapType: MKMapType = .standard
+    @State private var animateMarkers = false
+    
+    @State private var activeSheet: EmergencyMapSheet?
+    
+    // Все датчики: из бэка + зоны + река
+    private var sensors: [Sensor] {
+        let backend = sensorStore.sensors
+        let base = backend.isEmpty ? [] : backend
+        return base + SENSORS_FROM_ZONES + RIVER_SENSORS
+    }
+    
     var body: some View {
-        NavigationView {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.99, green: 0.93, blue: 0.93),
-                        Color(red: 0.96, green: 0.88, blue: 0.88)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-
-                VStack(spacing: 12) {
-                    header
-
-                    mapSection
-
-                    listSection
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
+        ZStack {
+            mapLayer
+            
+            VStack {
+                // Верхняя панель
+                topControls
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                
+                Spacer()
+                
+                // Нижняя панель слоёв
+                layerPanel
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
             }
-            .navigationBarHidden(true)
-            .sheet(item: $selectedObject) { obj in
-                EmergencyWaterObjectDetailView(object: obj)
+        }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .sensor(let sensor):
+                ModernSensorDetailSheet(sensor: sensor)
+            case .resident(let resident):
+                ResidentOnMapSheet(resident: resident)
+            case .evacPoint(let point):
+                EvacPointOnMapSheet(point: point)
+            }
+        }
+        .navigationTitle("Карта (МЧС)")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                animateMarkers = true
             }
         }
     }
-
-    // MARK: - Подвьюхи
-
-    private var header: some View {
+    
+    // MARK: - Map
+    
+    @ViewBuilder
+    private var mapLayer: some View {
+        if #available(iOS 17.0, *) {
+            Map(position: .constant(.region(region))) {
+                // Зоны риска
+                if showRiskZones {
+                    ForEach(RISK_ZONES) { zone in
+                        let polygon = MKPolygon(
+                            coordinates: zone.coordinates,
+                            count: zone.coordinates.count
+                        )
+                        MapPolygon(polygon)
+                            .foregroundStyle(zone.fillColor)
+                    }
+                }
+                
+                // Датчики
+                if showSensors {
+                    ForEach(sensors) { sensor in
+                        Annotation(sensor.name, coordinate: sensor.location) {
+                            AnimatedSensorMarker(sensor: sensor, isAnimating: animateMarkers) {
+                                activeSheet = .sensor(sensor)
+                            }
+                        }
+                    }
+                }
+                
+                // Жители
+                if showResidents {
+                    ForEach(residents) { resident in
+                        Annotation(resident.name, coordinate: resident.location) {
+                            ResidentMarker(resident: resident) {
+                                activeSheet = .resident(resident)
+                            }
+                        }
+                    }
+                }
+                
+                // Пункты эвакуации
+                if showEvacPoints {
+                    ForEach(evacPoints) { point in
+                        Annotation(point.name, coordinate: point.location) {
+                            EvacPointMarker(point: point) {
+                                activeSheet = .evacPoint(point)
+                            }
+                        }
+                    }
+                }
+            }
+            .mapStyle(mapType == .standard ? .standard : .imagery)
+            .ignoresSafeArea(edges: .bottom)
+        } else {
+            // Для iOS < 17 можно позже сделать свой MapRepresentable
+            Map(coordinateRegion: $region)
+                .ignoresSafeArea(edges: .bottom)
+        }
+    }
+    
+    // MARK: - Top controls
+    
+    private var topControls: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Критические объекты")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.red)
-
-                Text("Мониторинг водных объектов с высоким риском")
-                    .font(.subheadline)
+                Text("Оперативная карта")
+                    .font(.headline)
+                Text("Паводки, жители и пункты эвакуации")
+                    .font(.caption)
                     .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-
+            
             Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("Экстренный режим")
-                    .font(.caption)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color.red.opacity(0.1))
-                    )
-                    .foregroundColor(.red)
+            
+            Button(action: {
+                mapType = mapType == .standard ? .hybridFlyover : .standard
+            }) {
+                Image(systemName: mapType == .standard ? "globe.europe.africa.fill" : "map.fill")
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: Circle())
             }
         }
     }
-
-    private var mapSection: some View {
-        ZStack(alignment: .bottomLeading) {
-            Map(coordinateRegion: $region, annotationItems: criticalObjects) { obj in
-                MapAnnotation(coordinate: obj.coordinate) {
-                    Button {
-                        selectedObject = obj
-                    } label: {
-                        EmergencyMarkerView(object: obj)
-                    }
-                }
-            }
-            .cornerRadius(18)
-            .frame(height: 260)
-            .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Критических объектов: \(criticalObjects.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Text("Показаны категория 4–5 и высокий приоритет")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.9))
+    
+    // MARK: - Layer panel
+    
+    private var layerPanel: some View {
+        HStack(spacing: 8) {
+            LayerToggleChip(
+                title: "Зоны риска",
+                systemImage: "exclamationmark.triangle",
+                isOn: $showRiskZones,
+                activeColor: .red
             )
-            .padding(10)
-        }
-    }
-
-    private var listSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Список критических объектов")
-                .font(.headline)
-                .foregroundColor(.red)
-
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(criticalObjects) { obj in
-                        Button {
-                            selectedObject = obj
-                        } label: {
-                            EmergencyRow(object: obj)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-            }
-            .frame(maxHeight: 260)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
-        )
-    }
-}
-
-// MARK: - Маркер на карте для emergency
-
-private struct EmergencyMarkerView: View {
-    let object: WaterObject
-
-    private var color: Color {
-        switch object.technicalCondition {
-        case 4: return .orange
-        default: return .red
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text("\(object.technicalCondition)")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .frame(width: 26, height: 26)
-                .background(
-                    Circle()
-                        .fill(color)
-                )
-                .shadow(color: color.opacity(0.6), radius: 4, x: 0, y: 2)
-
-            Image(systemName: "triangle.fill")
-                .font(.system(size: 10))
-                .rotationEffect(.degrees(180))
-                .foregroundColor(color)
-        }
-    }
-}
-
-// MARK: - Ряд списка в emergency
-
-private struct EmergencyRow: View {
-    let object: WaterObject
-
-    private var conditionColor: Color {
-        switch object.technicalCondition {
-        case 4: return .orange
-        default: return .red
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(conditionColor.opacity(0.15))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Text("\(object.technicalCondition)")
-                        .font(.headline)
-                        .foregroundColor(conditionColor)
-                )
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(object.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
-
-                Text(object.region)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                HStack(spacing: 8) {
-                    Text(object.resourceType.rawValue)
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.red.opacity(0.05))
-                        .cornerRadius(8)
-
-                    Text(object.waterType.rawValue)
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.orange.opacity(0.05))
-                        .cornerRadius(8)
-                }
-
-                HStack(spacing: 8) {
-                    Text("Паспорт: \(object.formattedPassportDate)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Text("Priority: \(object.priorityScore)")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.red.opacity(0.08))
-                        .foregroundColor(.red)
-                        .cornerRadius(8)
-                }
-            }
+            LayerToggleChip(
+                title: "Датчики",
+                systemImage: "antenna.radiowaves.left.and.right",
+                isOn: $showSensors,
+                activeColor: .blue
+            )
+            LayerToggleChip(
+                title: "Жители",
+                systemImage: "person.2.fill",
+                isOn: $showResidents,
+                activeColor: .green
+            )
+            LayerToggleChip(
+                title: "Эвакуация",
+                systemImage: "bus.fill",
+                isOn: $showEvacPoints,
+                activeColor: .orange
+            )
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 2, x: 0, y: 1)
+        .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
     }
 }
 
-// MARK: - Деталка для emergency
+// MARK: - Layer toggle chip
 
-private struct EmergencyWaterObjectDetailView: View {
-    let object: WaterObject
+struct LayerToggleChip: View {
+    let title: String
+    let systemImage: String
+    @Binding var isOn: Bool
+    let activeColor: Color
+    
+    var body: some View {
+        Button(action: { isOn.toggle() }) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.caption)
+                Text(title)
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .foregroundColor(isOn ? .white : .primary)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isOn ? activeColor : Color(.secondarySystemBackground))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
 
-    private var conditionColor: Color {
-        switch object.technicalCondition {
-        case 4: return .orange
-        default: return .red
+// MARK: - Маркеры
+
+struct ResidentMarker: View {
+    let resident: Resident
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 2) {
+                Text(riskIcon)
+                    .font(.subheadline)
+                Image(systemName: "house.fill")
+                    .font(.caption)
+            }
+            .padding(6)
+            .background(riskColor.opacity(0.9))
+            .clipShape(Circle())
+            .shadow(radius: 4)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var riskColor: Color {
+        switch resident.riskZone {
+        case .critical: return .red
+        case .high:     return .orange
+        case .medium:   return .yellow
+        case .low:      return .green
         }
     }
+    
+    private var riskIcon: String {
+        switch resident.riskZone {
+        case .critical: return "‼️"
+        case .high:     return "⚠️"
+        case .medium:   return "🟡"
+        case .low:      return "🟢"
+        }
+    }
+}
 
+struct EvacPointMarker: View {
+    let point: EvacuationPoint
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 2) {
+                Image(systemName: "bus.fill")
+                    .font(.caption)
+                Text(point.name.prefix(1))
+                    .font(.caption2)
+            }
+            .padding(6)
+            .background(Color.blue.opacity(0.9))
+            .clipShape(Circle())
+            .shadow(radius: 4)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Детальные шторки
+
+struct ResidentOnMapSheet: View {
+    let resident: Resident
+    @Environment(\.dismiss) private var dismiss
+    
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(object.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text(object.region)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    HStack(spacing: 8) {
-                        Label(object.resourceType.rawValue, systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .padding(8)
-                            .background(Color.red.opacity(0.08))
-                            .cornerRadius(10)
-
-                        Label(object.waterType.rawValue, systemImage: "water.waves")
-                            .font(.caption)
-                            .padding(8)
-                            .background(Color.orange.opacity(0.08))
-                            .cornerRadius(10)
-
-                        if object.hasFauna {
-                            Label("Есть фауна", systemImage: "fish.fill")
-                                .font(.caption)
-                                .padding(8)
-                                .background(Color.green.opacity(0.08))
-                                .cornerRadius(10)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Техническое состояние")
-                            .font(.headline)
-
-                        HStack(spacing: 8) {
-                            Text("Категория: \(object.technicalCondition)")
-                                .font(.subheadline)
-                            Circle()
-                                .fill(conditionColor)
-                                .frame(width: 10, height: 10)
-                        }
-
-                        Text("Дата паспорта: \(object.formattedPassportDate)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Приоритет обследования")
-                            .font(.headline)
-
-                        HStack(spacing: 8) {
-                            Text("PriorityScore: \(object.priorityScore)")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                        }
-                    }
-
-                    if let url = object.passportURL {
-                        Link(destination: url) {
-                            HStack {
-                                Image(systemName: "doc.richtext")
-                                Text("Открыть паспорт (PDF)")
-                            }
-                            .font(.subheadline)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(12)
-                        }
-                    } else {
-                        Text("Паспорт объекта пока недоступен.")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Spacer(minLength: 10)
-                }
-                .padding()
+            VStack(alignment: .leading, spacing: 12) {
+                Text(resident.name)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text("Зона риска: \(riskTitle)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Text("Адрес: \(resident.address)")
+                    .font(.subheadline)
+                
+                Spacer()
             }
-            .navigationTitle("Критический объект")
+            .padding()
+            .navigationTitle("Житель")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Закрыть") { dismiss() }
+                }
+            }
         }
     }
+    
+    private var riskTitle: String {
+        switch resident.riskZone {
+        case .critical: return "Критическая"
+        case .high:     return "Высокая"
+        case .medium:   return "Средняя"
+        case .low:      return "Низкая"
+        }
+    }
+}
+
+struct EvacPointOnMapSheet: View {
+    let point: EvacuationPoint
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(point.name)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text(point.address)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Пункт эвакуации")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Закрыть") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+#Preview {
+    EmergencyMapView()
+        .environmentObject(SensorStore())
 }

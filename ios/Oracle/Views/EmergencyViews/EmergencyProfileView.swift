@@ -19,23 +19,22 @@ struct EmergencyProfileView: View {
     }
 
     private var userPhone: String {
-        // если телефоны есть в модели – подставится, иначе заглушка
         user?.phone ?? "Не указан"
-        // если у тебя нет протокола, можешь просто использовать user?.phone ?? "Не указан"
     }
 
     private var userAddress: String {
         user?.address ?? "Не указан"
-        // аналогично – при необходимости замени на user?.address ?? "Не указан"
     }
 
     private var roleLabel: String {
-        switch user?.role {
+        guard let role = user?.role else { return "Пользователь" }
+        
+        switch role {
         case .emergency:
             return "Сотрудник МЧС"
         case .resident:
             return "Житель"
-        case .none:
+        @unknown default:
             return "Пользователь"
         }
     }
@@ -197,7 +196,6 @@ struct EmergencyProfileView: View {
                 title: "Закреплённый район",
                 value: userAddress
             )
-
         }
         .padding(16)
         .background(
@@ -358,7 +356,6 @@ private struct EmergencyProfileInfoRow: View {
         }
     }
 }
-
 
 // MARK: - Preview
 

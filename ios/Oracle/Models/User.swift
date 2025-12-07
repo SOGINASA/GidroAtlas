@@ -3,7 +3,6 @@ import Foundation
 enum UserRole: String, Codable {
     case resident
     case emergency
-    case admin      // добавили администратора
 }
 
 

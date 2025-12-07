@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var authManager: AuthManager
-
+    
     var body: some View {
         Group {
             if authManager.isAuthenticated, let user = authManager.currentUser {
@@ -11,8 +11,6 @@ struct ContentView: View {
                     MainTabView()
                 case .emergency:
                     EmergencyMainTabView()
-                case .admin:
-                    AdminMainTabView()
                 }
             } else {
                 LoginView()

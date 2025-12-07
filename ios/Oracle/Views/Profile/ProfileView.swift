@@ -207,8 +207,6 @@ struct ProfileView: View {
             return "Житель"
         case .emergency:
             return "Сотрудник МЧС"
-        case .admin:
-            return "Администратор GidroAtlas"
         }
     }
     
@@ -218,8 +216,6 @@ struct ProfileView: View {
             return .blue
         case .emergency:
             return .red
-        case .admin:
-            return Color(red: 0.85, green: 0.3, blue: 0.7) // розово-фиолетовый
         }
     }
 }

@@ -149,40 +149,6 @@ struct LoginView: View {
                         }
                         .padding(.horizontal, 25)
                         
-                        // Быстрый вход (администратор GidroAtlas)
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                authManager.loginAsTestAdmin()
-                            }
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "slider.horizontal.3")
-                                    .font(.title3)
-                                Text("Войти как администратор GidroAtlas")
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .font(.title3)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 18)
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.92, green: 0.36, blue: 0.62),
-                                        Color(red: 0.58, green: 0.26, blue: 0.82)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .foregroundColor(.white)
-                            .cornerRadius(14)
-                            .shadow(color: Color(red: 0.92, green: 0.36, blue: 0.62).opacity(0.5), radius: 8, y: 4)
-                        }
-                        .padding(.horizontal, 25)
-                        
                         // Разделитель
                         HStack(spacing: 12) {
                             Rectangle()

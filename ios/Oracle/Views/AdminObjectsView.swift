@@ -109,7 +109,7 @@ struct AdminObjectsView: View {
                             }
                         }
                     } label: {
-                        FilterChip(
+                        AdminFilterChip(
                             title: selectedType?.title ?? "Тип",
                             isActive: selectedType != nil,
                             icon: "drop.circle"
@@ -128,7 +128,7 @@ struct AdminObjectsView: View {
                             }
                         }
                     } label: {
-                        FilterChip(
+                        AdminFilterChip(
                             title: selectedRegion ?? "Область",
                             isActive: selectedRegion != nil,
                             icon: "mappin.circle"
@@ -141,7 +141,7 @@ struct AdminObjectsView: View {
                         selectedType = nil
                         selectedRegion = nil
                     }) {
-                        FilterChip(
+                        AdminFilterChip(
                             title: "Сбросить",
                             isActive: false,
                             icon: "arrow.counterclockwise"
@@ -173,7 +173,7 @@ struct AdminObjectsView: View {
     }
 }
 
-// MARK: - Models (админские, чтобы не конфликтовали с основными)
+// MARK: - Models (админские, чтобы не конфликтовали с остальными)
 
 enum AdminWaterObjectKind: String, CaseIterable, Codable {
     case lake
@@ -299,7 +299,8 @@ struct AdminWaterObjectRow: View {
     }
 }
 
-struct FilterChip: View {
+// Чип фильтра — отдельное имя, чтобы не конфликтовать с FilterChip из EmergencyNotificationsView
+struct AdminFilterChip: View {
     let title: String
     let isActive: Bool
     let icon: String
