@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { 
+import { useState, useEffect } from 'react';
+import {
   Droplets,
   Plus,
   Search,
@@ -20,9 +20,16 @@ import {
   Save,
   X,
   Fish,
-  Waves
+  Waves,
+  Loader
 } from 'lucide-react';
 import AdminLayout from '../../components/navigation/admin/AdminLayout';
+import {
+  getWaterBodies,
+  createWaterBody,
+  updateWaterBody,
+  deleteWaterBody
+} from '../../services/waterBodyService';
 
 const WaterBodiesManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +42,65 @@ const WaterBodiesManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedWaterBody, setSelectedWaterBody] = useState(null);
   const [viewMode, setViewMode] = useState('table');
+  const [waterBodies, setWaterBodies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('success');
+
+  // Данные формы для создания/редактирования
+  const [formData, setFormData] = useState({
+    name: '',
+    region: '',
+    type: '',
+    water_type: '',
+    has_fauna: '',
+    technical_condition: '',
+    passport_date: '',
+    area: '',
+    volume: '',
+    max_depth: '',
+    latitude: '',
+    longitude: '',
+    passport_pdf_url: ''
+  });
+
+  useEffect(() => {
+    loadWaterBodies();
+  }, [selectedRegion, selectedResourceType]);
+
+  const loadWaterBodies = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (selectedRegion && selectedRegion !== 'Все регионы') {
+        params.region = selectedRegion;
+      }
+      if (selectedResourceType) {
+        params.type = selectedResourceType;
+      }
+
+      const response = await getWaterBodies(params);
+      if (response.success) {
+        setWaterBodies(response.data || []);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки водоёмов:', err);
+      setError('Не удалось загрузить водоёмы');
+      setWaterBodies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showAlertMessage = (message, type = 'success') => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
+  };
 
   // Регионы Казахстана
   const regions = [
@@ -70,138 +136,6 @@ const WaterBodiesManagement = () => {
     { value: 'non-fresh', label: 'Непресная' }
   ];
 
-  // Mock данные водоёмов
-  const [waterBodies, setWaterBodies] = useState([
-    {
-      id: 1,
-      name: 'Озеро Балхаш',
-      region: 'Карагандинская',
-      resourceType: 'lake',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 3,
-      passportDate: '2019-05-15',
-      area: 16400,
-      volume: 112,
-      maxDepth: 26,
-      coordinates: { lat: 46.8333, lng: 74.9833 },
-      priority: { score: 14, level: 'high' },
-      lastInspection: '2024-08-20'
-    },
-    {
-      id: 2,
-      name: 'Капшагайское водохранилище',
-      region: 'Алматинская',
-      resourceType: 'reservoir',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 2,
-      passportDate: '2021-03-22',
-      area: 1847,
-      volume: 28.14,
-      maxDepth: 45,
-      coordinates: { lat: 43.8833, lng: 77.0833 },
-      priority: { score: 7, level: 'medium' },
-      lastInspection: '2024-11-10'
-    },
-    {
-      id: 3,
-      name: 'Озеро Зайсан',
-      region: 'Восточно-Казахстанская',
-      resourceType: 'lake',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 2,
-      passportDate: '2020-07-18',
-      area: 1810,
-      volume: 53,
-      maxDepth: 15,
-      coordinates: { lat: 47.9667, lng: 84.0333 },
-      priority: { score: 8, level: 'medium' },
-      lastInspection: '2024-09-15'
-    },
-    {
-      id: 4,
-      name: 'Бухтарминское водохранилище',
-      region: 'Восточно-Казахстанская',
-      resourceType: 'reservoir',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 3,
-      passportDate: '2018-11-05',
-      area: 5490,
-      volume: 49.6,
-      maxDepth: 70,
-      coordinates: { lat: 47.5833, lng: 83.5833 },
-      priority: { score: 15, level: 'high' },
-      lastInspection: '2024-07-22'
-    },
-    {
-      id: 5,
-      name: 'Канал Иртыш-Караганда',
-      region: 'Карагандинская',
-      resourceType: 'canal',
-      waterType: 'fresh',
-      fauna: false,
-      technicalCondition: 4,
-      passportDate: '2017-06-30',
-      area: 458,
-      volume: null,
-      maxDepth: 8,
-      coordinates: { lat: 49.8047, lng: 73.1094 },
-      priority: { score: 9, level: 'medium' },
-      lastInspection: '2024-10-05'
-    },
-    {
-      id: 6,
-      name: 'Озеро Кольсай',
-      region: 'Алматинская',
-      resourceType: 'lake',
-      waterType: 'fresh',
-      fauna: true,
-      technicalCondition: 1,
-      passportDate: '2022-04-12',
-      area: 0.4,
-      volume: 0.0079,
-      maxDepth: 80,
-      coordinates: { lat: 42.9833, lng: 78.3333 },
-      priority: { score: 6, level: 'medium' },
-      lastInspection: '2024-11-18'
-    },
-    {
-      id: 7,
-      name: 'Каспийское море (казахстанская часть)',
-      region: 'Атырауская',
-      resourceType: 'lake',
-      waterType: 'non-fresh',
-      fauna: true,
-      technicalCondition: 3,
-      passportDate: '2019-09-20',
-      area: 371000,
-      volume: 78200,
-      maxDepth: 1025,
-      coordinates: { lat: 44.0, lng: 50.0 },
-      priority: { score: 14, level: 'high' },
-      lastInspection: '2024-06-30'
-    },
-    {
-      id: 8,
-      name: 'Шардаринское водохранилище',
-      region: 'Туркестанская',
-      resourceType: 'reservoir',
-      waterType: 'fresh',
-      fauna: false,
-      technicalCondition: 4,
-      passportDate: '2016-12-08',
-      area: 1100,
-      volume: 5.2,
-      maxDepth: 25,
-      coordinates: { lat: 41.2167, lng: 67.9833 },
-      priority: { score: 16, level: 'high' },
-      lastInspection: '2024-05-15'
-    }
-  ]);
-
   // Статистика
   const stats = [
     {
@@ -221,14 +155,14 @@ const WaterBodiesManagement = () => {
     {
       icon: AlertTriangle,
       label: 'Требуют внимания',
-      value: waterBodies.filter(w => w.priority.level === 'high').length.toString(),
+      value: waterBodies.filter(w => w.technicalCondition >= 4).length.toString(),
       change: '+1',
       color: 'from-red-500 to-orange-500'
     },
     {
       icon: Fish,
       label: 'С фауной',
-      value: waterBodies.filter(w => w.fauna).length.toString(),
+      value: waterBodies.filter(w => w.hasFauna).length.toString(),
       change: '0',
       color: 'from-purple-500 to-pink-500'
     }
@@ -263,62 +197,175 @@ const WaterBodiesManagement = () => {
     return labels[type] || type;
   };
 
-  const getPriorityColor = (level) => {
-    const colors = {
-      high: 'bg-red-100 text-red-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      low: 'bg-green-100 text-green-800'
-    };
-    return colors[level] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getPriorityLabel = (level) => {
-    const labels = {
-      high: 'Высокий',
-      medium: 'Средний',
-      low: 'Низкий'
-    };
-    return labels[level] || level;
-  };
-
-  // Фильтрация
+  // Фильтрация на клиенте
   const filteredWaterBodies = waterBodies.filter(waterBody => {
     const matchesSearch = waterBody.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRegion = !selectedRegion || selectedRegion === 'Все регионы' || waterBody.region === selectedRegion;
-    const matchesResourceType = !selectedResourceType || waterBody.resourceType === selectedResourceType;
     const matchesWaterType = !selectedWaterType || waterBody.waterType === selectedWaterType;
     const matchesCondition = !selectedCondition || waterBody.technicalCondition === parseInt(selectedCondition);
-    
-    return matchesSearch && matchesRegion && matchesResourceType && matchesWaterType && matchesCondition;
+
+    return matchesSearch && matchesWaterType && matchesCondition;
   });
 
-  // Обработчики
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      region: '',
+      type: '',
+      water_type: '',
+      has_fauna: '',
+      technical_condition: '',
+      passport_date: '',
+      area: '',
+      volume: '',
+      max_depth: '',
+      latitude: '',
+      longitude: '',
+      passport_pdf_url: ''
+    });
+  };
+
   const handleAddWaterBody = () => {
+    resetForm();
     setShowAddModal(true);
   };
 
   const handleEditWaterBody = (waterBody) => {
     setSelectedWaterBody(waterBody);
+    setFormData({
+      name: waterBody.name || '',
+      region: waterBody.region || '',
+      type: waterBody.type || '',
+      water_type: waterBody.waterType || '',
+      has_fauna: waterBody.hasFauna ? 'true' : 'false',
+      technical_condition: waterBody.technicalCondition?.toString() || '',
+      passport_date: waterBody.passportDate || '',
+      area: waterBody.area?.toString() || '',
+      volume: waterBody.volume?.toString() || '',
+      max_depth: waterBody.maxDepth?.toString() || '',
+      latitude: waterBody.latitude?.toString() || '',
+      longitude: waterBody.longitude?.toString() || '',
+      passport_pdf_url: waterBody.passportPdfUrl || ''
+    });
     setShowEditModal(true);
   };
 
-  const handleDeleteWaterBody = (id) => {
+  const handleDeleteWaterBody = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить этот водоём?')) {
-      setWaterBodies(waterBodies.filter(w => w.id !== id));
+      try {
+        const response = await deleteWaterBody(id);
+        if (response.success) {
+          showAlertMessage('Водоём успешно удалён', 'success');
+          loadWaterBodies();
+        }
+      } catch (err) {
+        console.error('Ошибка удаления водоёма:', err);
+        showAlertMessage(typeof err === 'string' ? err : 'Не удалось удалить водоём', 'error');
+      }
+    }
+  };
+
+  const handleSubmitCreate = async (e) => {
+    e.preventDefault();
+
+    try {
+      const waterBodyData = {
+        name: formData.name,
+        region: formData.region,
+        type: formData.type,
+        water_type: formData.water_type,
+        has_fauna: formData.has_fauna === 'true',
+        technical_condition: parseInt(formData.technical_condition),
+        passport_date: formData.passport_date,
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude)
+      };
+
+      if (formData.area) waterBodyData.area = parseFloat(formData.area);
+      if (formData.volume) waterBodyData.volume = parseFloat(formData.volume);
+      if (formData.max_depth) waterBodyData.max_depth = parseFloat(formData.max_depth);
+      if (formData.passport_pdf_url) waterBodyData.passport_pdf_url = formData.passport_pdf_url;
+
+      const response = await createWaterBody(waterBodyData);
+      if (response.success) {
+        showAlertMessage('Водоём успешно создан', 'success');
+        setShowAddModal(false);
+        resetForm();
+        loadWaterBodies();
+      }
+    } catch (err) {
+      console.error('Ошибка создания водоёма:', err);
+      showAlertMessage(typeof err === 'string' ? err : 'Не удалось создать водоём', 'error');
+    }
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const waterBodyData = {
+        name: formData.name,
+        region: formData.region,
+        type: formData.type,
+        water_type: formData.water_type,
+        has_fauna: formData.has_fauna === 'true',
+        technical_condition: parseInt(formData.technical_condition),
+        passport_date: formData.passport_date,
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude)
+      };
+
+      if (formData.area) waterBodyData.area = parseFloat(formData.area);
+      if (formData.volume) waterBodyData.volume = parseFloat(formData.volume);
+      if (formData.max_depth) waterBodyData.max_depth = parseFloat(formData.max_depth);
+      if (formData.passport_pdf_url) waterBodyData.passport_pdf_url = formData.passport_pdf_url;
+
+      const response = await updateWaterBody(selectedWaterBody.id, waterBodyData);
+      if (response.success) {
+        showAlertMessage('Водоём успешно обновлён', 'success');
+        setShowEditModal(false);
+        setSelectedWaterBody(null);
+        resetForm();
+        loadWaterBodies();
+      }
+    } catch (err) {
+      console.error('Ошибка обновления водоёма:', err);
+      showAlertMessage(typeof err === 'string' ? err : 'Не удалось обновить водоём', 'error');
     }
   };
 
   const handleExport = () => {
-    alert('Экспорт данных в CSV...');
+    showAlertMessage('Функция экспорта в разработке', 'info');
   };
 
   const handleImport = () => {
-    alert('Импорт данных из файла...');
+    showAlertMessage('Функция импорта в разработке', 'info');
   };
+
+  if (loading && waterBodies.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center h-screen">
+          <Loader className="w-8 h-8 animate-spin text-purple-500" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
+        {/* Alert */}
+        {showAlert && (
+          <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 ${
+            alertType === 'success' ? 'bg-green-500 text-white' :
+            alertType === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+          }`}>
+            {alertType === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+            {alertMessage}
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white">
           <div className="container mx-auto px-4 py-6">
@@ -359,7 +406,15 @@ const WaterBodiesManagement = () => {
 
         {/* Main Content */}
         <div className="container mx-auto px-4 py-6">
-          
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              {error}
+            </div>
+          )}
+
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             {stats.map((stat, index) => {
@@ -532,8 +587,6 @@ const WaterBodiesManagement = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Тип воды</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Фауна</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Состояние</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Приоритет</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Площадь (км²)</th>
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Действия</th>
                     </tr>
                   </thead>
@@ -554,7 +607,7 @@ const WaterBodiesManagement = () => {
                         <td className="px-6 py-4 text-sm text-gray-600">{waterBody.region}</td>
                         <td className="px-6 py-4">
                           <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
-                            {getResourceTypeLabel(waterBody.resourceType)}
+                            {getResourceTypeLabel(waterBody.type)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -565,7 +618,7 @@ const WaterBodiesManagement = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          {waterBody.fauna ? (
+                          {waterBody.hasFauna ? (
                             <CheckCircle className="w-5 h-5 text-green-600" />
                           ) : (
                             <XCircle className="w-5 h-5 text-gray-400" />
@@ -577,22 +630,7 @@ const WaterBodiesManagement = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(waterBody.priority.level)}`}>
-                            {getPriorityLabel(waterBody.priority.level)} ({waterBody.priority.score})
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {waterBody.area.toLocaleString('ru-RU')}
-                        </td>
-                        <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => alert(`Просмотр ${waterBody.name}`)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Просмотр"
-                            >
-                              <Eye className="w-5 h-5" />
-                            </button>
                             <button
                               onClick={() => handleEditWaterBody(waterBody)}
                               className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -629,14 +667,11 @@ const WaterBodiesManagement = () => {
                         <Droplets className="w-6 h-6 text-white" />
                       </div>
                       <div className="flex gap-2">
-                        {waterBody.fauna && (
+                        {waterBody.hasFauna && (
                           <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center" title="Есть фауна">
                             <Fish className="w-4 h-4 text-white" />
                           </div>
                         )}
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(waterBody.priority.level)}`}>
-                          {getPriorityLabel(waterBody.priority.level)}
-                        </span>
                       </div>
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">{waterBody.name}</h3>
@@ -648,7 +683,7 @@ const WaterBodiesManagement = () => {
                     <div className="space-y-3 mb-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Тип:</span>
-                        <span className="font-semibold text-gray-900">{getResourceTypeLabel(waterBody.resourceType)}</span>
+                        <span className="font-semibold text-gray-900">{getResourceTypeLabel(waterBody.type)}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Тип воды:</span>
@@ -664,61 +699,54 @@ const WaterBodiesManagement = () => {
                           Категория {waterBody.technicalCondition}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Площадь:</span>
-                        <span className="font-semibold text-gray-900">{waterBody.area.toLocaleString('ru-RU')} км²</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Макс. глубина:</span>
-                        <span className="font-semibold text-gray-900">{waterBody.maxDepth} м</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Дата паспорта:</span>
-                        <span className="text-gray-900">{new Date(waterBody.passportDate).toLocaleDateString('ru-RU')}</span>
-                      </div>
+                      {waterBody.area && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Площадь:</span>
+                          <span className="font-semibold text-gray-900">{waterBody.area.toLocaleString('ru-RU')} км²</span>
+                        </div>
+                      )}
+                      {waterBody.maxDepth && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Макс. глубина:</span>
+                          <span className="font-semibold text-gray-900">{waterBody.maxDepth} м</span>
+                        </div>
+                      )}
+                      {waterBody.passportDate && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Дата паспорта:</span>
+                          <span className="text-gray-900">{new Date(waterBody.passportDate).toLocaleDateString('ru-RU')}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Quick Stats */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-gray-50 rounded-lg p-3">
+                    {(waterBody.latitude && waterBody.longitude) && (
+                      <div className="bg-gray-50 rounded-lg p-3 mb-4">
                         <div className="flex items-center justify-center mb-2">
                           <MapPin className="w-4 h-4 text-gray-600" />
                         </div>
                         <p className="text-xs text-gray-600 text-center">Координаты</p>
                         <p className="text-sm font-semibold text-gray-900 text-center">
-                          {waterBody.coordinates.lat.toFixed(2)}, {waterBody.coordinates.lng.toFixed(2)}
+                          {waterBody.latitude.toFixed(2)}, {waterBody.longitude.toFixed(2)}
                         </p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center justify-center mb-2">
-                          <Calendar className="w-4 h-4 text-gray-600" />
-                        </div>
-                        <p className="text-xs text-gray-600 text-center">Последнее обследование</p>
-                        <p className="text-sm font-semibold text-gray-900 text-center">
-                          {new Date(waterBody.lastInspection).toLocaleDateString('ru-RU')}
-                        </p>
-                      </div>
-                    </div>
+                    )}
 
                     {/* Action Buttons */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => alert(`Просмотр ${waterBody.name}`)}
-                        className="flex items-center justify-center px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleEditWaterBody(waterBody)}
                         className="flex items-center justify-center px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-4 h-4 mr-2" />
+                        Изменить
                       </button>
                       <button
                         onClick={() => handleDeleteWaterBody(waterBody.id)}
                         className="flex items-center justify-center px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить
                       </button>
                     </div>
                   </div>
@@ -728,7 +756,7 @@ const WaterBodiesManagement = () => {
           )}
 
           {/* Empty State */}
-          {filteredWaterBodies.length === 0 && (
+          {filteredWaterBodies.length === 0 && !loading && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-12 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Droplets className="w-10 h-10 text-gray-400" />
@@ -756,14 +784,17 @@ const WaterBodiesManagement = () => {
                   Добавить новый водоём
                 </h2>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="p-6">
+              <form onSubmit={handleSubmitCreate} className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -771,6 +802,9 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
                       placeholder="Озеро Балхаш"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -780,7 +814,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Регион <span className="text-red-500">*</span>
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.region}
+                      onChange={(e) => setFormData({...formData, region: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       <option value="">Выберите регион</option>
                       {regions.filter(r => r !== 'Все регионы').map((region) => (
                         <option key={region} value={region}>{region}</option>
@@ -792,7 +831,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Тип водного ресурса <span className="text-red-500">*</span>
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.type}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       <option value="">Выберите тип</option>
                       {resourceTypes.filter(t => t.value).map((type) => (
                         <option key={type.value} value={type.value}>{type.label}</option>
@@ -804,7 +848,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Тип воды <span className="text-red-500">*</span>
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.water_type}
+                      onChange={(e) => setFormData({...formData, water_type: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       <option value="">Выберите тип воды</option>
                       {waterTypes.filter(t => t.value).map((type) => (
                         <option key={type.value} value={type.value}>{type.label}</option>
@@ -816,7 +865,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Наличие фауны <span className="text-red-500">*</span>
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.has_fauna}
+                      onChange={(e) => setFormData({...formData, has_fauna: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       <option value="">Выберите</option>
                       <option value="true">Да</option>
                       <option value="false">Нет</option>
@@ -827,7 +881,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Техническое состояние (1-5) <span className="text-red-500">*</span>
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.technical_condition}
+                      onChange={(e) => setFormData({...formData, technical_condition: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       <option value="">Выберите категорию</option>
                       <option value="1">Категория 1 (Отличное)</option>
                       <option value="2">Категория 2 (Хорошее)</option>
@@ -843,6 +902,9 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="date"
+                      required
+                      value={formData.passport_date}
+                      onChange={(e) => setFormData({...formData, passport_date: e.target.value})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
@@ -853,6 +915,9 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="0.01"
+                      value={formData.area}
+                      onChange={(e) => setFormData({...formData, area: e.target.value})}
                       placeholder="16400"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -864,6 +929,9 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="0.01"
+                      value={formData.volume}
+                      onChange={(e) => setFormData({...formData, volume: e.target.value})}
                       placeholder="112"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -875,6 +943,9 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="number"
+                      step="0.01"
+                      value={formData.max_depth}
+                      onChange={(e) => setFormData({...formData, max_depth: e.target.value})}
                       placeholder="26"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -887,6 +958,9 @@ const WaterBodiesManagement = () => {
                     <input
                       type="number"
                       step="0.0001"
+                      required
+                      value={formData.latitude}
+                      onChange={(e) => setFormData({...formData, latitude: e.target.value})}
                       placeholder="46.8333"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -899,6 +973,9 @@ const WaterBodiesManagement = () => {
                     <input
                       type="number"
                       step="0.0001"
+                      required
+                      value={formData.longitude}
+                      onChange={(e) => setFormData({...formData, longitude: e.target.value})}
                       placeholder="74.9833"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -910,6 +987,8 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="url"
+                      value={formData.passport_pdf_url}
+                      onChange={(e) => setFormData({...formData, passport_pdf_url: e.target.value})}
                       placeholder="https://example.com/passport.pdf"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -918,23 +997,24 @@ const WaterBodiesManagement = () => {
 
                 <div className="flex gap-3 mt-6">
                   <button
-                    onClick={() => {
-                      alert('Водоём добавлен!');
-                      setShowAddModal(false);
-                    }}
+                    type="submit"
                     className="flex-1 flex items-center justify-center px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold"
                   >
                     <Save className="w-5 h-5 mr-2" />
                     Сохранить
                   </button>
                   <button
-                    onClick={() => setShowAddModal(false)}
+                    type="button"
+                    onClick={() => {
+                      setShowAddModal(false);
+                      resetForm();
+                    }}
                     className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
                   >
                     Отмена
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         )}
@@ -952,6 +1032,7 @@ const WaterBodiesManagement = () => {
                   onClick={() => {
                     setShowEditModal(false);
                     setSelectedWaterBody(null);
+                    resetForm();
                   }}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                 >
@@ -959,7 +1040,7 @@ const WaterBodiesManagement = () => {
                 </button>
               </div>
 
-              <div className="p-6">
+              <form onSubmit={handleSubmitEdit} className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -967,7 +1048,9 @@ const WaterBodiesManagement = () => {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedWaterBody.name}
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
@@ -976,7 +1059,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Регион <span className="text-red-500">*</span>
                     </label>
-                    <select defaultValue={selectedWaterBody.region} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.region}
+                      onChange={(e) => setFormData({...formData, region: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       {regions.filter(r => r !== 'Все регионы').map((region) => (
                         <option key={region} value={region}>{region}</option>
                       ))}
@@ -987,7 +1075,12 @@ const WaterBodiesManagement = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Тип водного ресурса <span className="text-red-500">*</span>
                     </label>
-                    <select defaultValue={selectedWaterBody.resourceType} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.type}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       {resourceTypes.filter(t => t.value).map((type) => (
                         <option key={type.value} value={type.value}>{type.label}</option>
                       ))}
@@ -996,9 +1089,45 @@ const WaterBodiesManagement = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Тип воды <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.water_type}
+                      onChange={(e) => setFormData({...formData, water_type: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
+                      {waterTypes.filter(t => t.value).map((type) => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Наличие фауны <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.has_fauna}
+                      onChange={(e) => setFormData({...formData, has_fauna: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="true">Да</option>
+                      <option value="false">Нет</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Техническое состояние (1-5) <span className="text-red-500">*</span>
                     </label>
-                    <select defaultValue={selectedWaterBody.technicalCondition} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <select
+                      required
+                      value={formData.technical_condition}
+                      onChange={(e) => setFormData({...formData, technical_condition: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    >
                       <option value="1">Категория 1 (Отличное)</option>
                       <option value="2">Категория 2 (Хорошее)</option>
                       <option value="3">Категория 3 (Удовлетворительное)</option>
@@ -1006,31 +1135,121 @@ const WaterBodiesManagement = () => {
                       <option value="5">Категория 5 (Критическое)</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Дата паспорта <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.passport_date}
+                      onChange={(e) => setFormData({...formData, passport_date: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Площадь (км²)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.area}
+                      onChange={(e) => setFormData({...formData, area: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Объём (км³)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.volume}
+                      onChange={(e) => setFormData({...formData, volume: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Максимальная глубина (м)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.max_depth}
+                      onChange={(e) => setFormData({...formData, max_depth: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Широта <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      required
+                      value={formData.latitude}
+                      onChange={(e) => setFormData({...formData, latitude: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Долгота <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      required
+                      value={formData.longitude}
+                      onChange={(e) => setFormData({...formData, longitude: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Ссылка на PDF паспорт
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.passport_pdf_url}
+                      onChange={(e) => setFormData({...formData, passport_pdf_url: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-3 mt-6">
                   <button
-                    onClick={() => {
-                      alert('Изменения сохранены!');
-                      setShowEditModal(false);
-                      setSelectedWaterBody(null);
-                    }}
+                    type="submit"
                     className="flex-1 flex items-center justify-center px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold"
                   >
                     <Save className="w-5 h-5 mr-2" />
                     Сохранить изменения
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedWaterBody(null);
+                      resetForm();
                     }}
                     className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
                   >
                     Отмена
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         )}

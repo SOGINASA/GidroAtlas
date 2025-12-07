@@ -1,88 +1,105 @@
-import { apiRequest } from '../contexts/AuthContext';
+import api from './api';
 
-// Get all water bodies - maps from sensor data
-export const getWaterBodies = async () => {
+/**
+ * Получить все водные объекты
+ * @param {Object} params - Параметры фильтрации (region, type)
+ */
+export const getWaterBodies = async (params = {}) => {
   try {
-    const res = await apiRequest('/api/sensors');
-    if (!res || !res.ok) throw new Error('Failed to fetch sensors');
-    const data = await res.json();
-    
-    // Transform sensors to water body format
-    if (data.success && data.data) {
-      return data.data.map(sensor => ({
-        id: sensor.id,
-        name: sensor.name,
-        location: sensor.location,
-        region: sensor.location,
-        type: 'Водоём',
-        status: sensor.dangerLevel === 'critical' ? 'critical' : sensor.dangerLevel === 'danger' ? 'warning' : 'safe',
-        waterLevel: sensor.waterLevel,
-        currentLevel: sensor.waterLevel,
-        normalLevel: 5.0,
-        temperature: sensor.temperature,
-        trend: 'stable',
-        riskLevel: sensor.dangerLevel,
-        sensors: 1,
-        coordinates: sensor.coordinates
-      }));
-    }
-    return [];
+    const response = await api.get('/facilities/water-bodies', { params });
+    return response.data;
   } catch (error) {
-    console.error('Error fetching sensors:', error);
-    throw error;
+    console.error('Ошибка получения водных объектов:', error);
+    throw error.response?.data?.error || 'Не удалось загрузить водные объекты';
   }
 };
 
-// Get water body by ID
+/**
+ * Получить водный объект по ID
+ * @param {number} id - ID водного объекта
+ */
 export const getWaterBodyById = async (id) => {
   try {
-    const res = await apiRequest(`/api/sensors/${id}`);
-    if (!res || !res.ok) throw new Error('Failed to fetch sensor');
-    const data = await res.json();
-    
-    if (data.success && data.data) {
-      const sensor = data.data;
-      return {
-        id: sensor.id,
-        name: sensor.name,
-        location: sensor.location,
-        region: sensor.location,
-        type: 'Водоём',
-        status: sensor.dangerLevel === 'critical' ? 'critical' : sensor.dangerLevel === 'danger' ? 'warning' : 'safe',
-        waterLevel: sensor.waterLevel,
-        currentLevel: sensor.waterLevel,
-        normalLevel: 5.0,
-        temperature: sensor.temperature,
-        riskLevel: sensor.dangerLevel,
-        coordinates: sensor.coordinates
-      };
-    }
-    return null;
+    const response = await api.get(`/facilities/water-bodies/${id}`);
+    return response.data;
   } catch (error) {
-    console.error('Error fetching sensor:', error);
-    throw error;
+    console.error('Ошибка получения водного объекта:', error);
+    throw error.response?.data?.error || 'Не удалось загрузить водный объект';
   }
 };
 
-// Get water bodies statistics
+/**
+ * Создать новый водный объект (admin/emergency)
+ * @param {Object} waterBodyData - Данные водного объекта
+ */
+export const createWaterBody = async (waterBodyData) => {
+  try {
+    const response = await api.post('/facilities/water-bodies', waterBodyData);
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка создания водного объекта:', error);
+    throw error.response?.data?.error || 'Не удалось создать водный объект';
+  }
+};
+
+/**
+ * Обновить водный объект (admin/emergency)
+ * @param {number} id - ID водного объекта
+ * @param {Object} waterBodyData - Данные для обновления
+ */
+export const updateWaterBody = async (id, waterBodyData) => {
+  try {
+    const response = await api.put(`/facilities/water-bodies/${id}`, waterBodyData);
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка обновления водного объекта:', error);
+    throw error.response?.data?.error || 'Не удалось обновить водный объект';
+  }
+};
+
+/**
+ * Удалить водный объект (admin)
+ * @param {number} id - ID водного объекта
+ */
+export const deleteWaterBody = async (id) => {
+  try {
+    const response = await api.delete(`/facilities/water-bodies/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка удаления водного объекта:', error);
+    throw error.response?.data?.error || 'Не удалось удалить водный объект';
+  }
+};
+
+/**
+ * Получить статистику водных объектов
+ */
 export const getWaterBodiesStats = async () => {
   try {
-    const res = await apiRequest('/api/sensors');
-    if (!res || !res.ok) throw new Error('Failed to fetch sensors');
-    const data = await res.json();
-    
-    if (data.success && data.data) {
-      const sensors = data.data;
+    const response = await api.get('/facilities/water-bodies');
+    if (response.data.success && response.data.data) {
+      const bodies = response.data.data;
       return {
-        total: sensors.length,
-        critical: sensors.filter(s => s.dangerLevel === 'critical').length,
-        warning: sensors.filter(s => s.dangerLevel === 'danger').length,
-        safe: sensors.filter(s => s.dangerLevel === 'safe').length
+        total: bodies.length,
+        critical: bodies.filter(b => b.technicalCondition >= 4).length,
+        warning: bodies.filter(b => b.technicalCondition === 3).length,
+        safe: bodies.filter(b => b.technicalCondition <= 2).length
       };
     }
     return { total: 0, critical: 0, warning: 0, safe: 0 };
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    console.error('Ошибка получения статистики:', error);
     throw error;
   }
 };
+
+const waterBodyService = {
+  getWaterBodies,
+  getWaterBodyById,
+  createWaterBody,
+  updateWaterBody,
+  deleteWaterBody,
+  getWaterBodiesStats,
+};
+
+export default waterBodyService;

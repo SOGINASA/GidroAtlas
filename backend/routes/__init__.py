@@ -6,6 +6,7 @@ from routes.evacuations import evacuations_bp
 from routes.facilities import facilities_bp
 from routes.reports import reports_bp
 from routes.map import map_bp
+from routes.admin import admin_bp
 
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     'facilities_bp',
     'reports_bp',
     'map_bp',
+    'admin_bp',
 ]

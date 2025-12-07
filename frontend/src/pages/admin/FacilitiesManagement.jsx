@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { 
+import { useState, useEffect } from 'react';
+import {
   Zap,
   Plus,
   Search,
@@ -23,9 +23,16 @@ import {
   Layers,
   Info,
   Save,
-  X
+  X,
+  Loader
 } from 'lucide-react';
 import AdminLayout from '../../components/navigation/admin/AdminLayout';
+import {
+  getHydroFacilities,
+  createFacility,
+  updateFacility,
+  deleteFacility
+} from '../../services/hydroFacilityService';
 
 const FacilitiesManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,7 +43,66 @@ const FacilitiesManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
-  const [viewMode, setViewMode] = useState('table'); // 'table' or 'cards'
+  const [viewMode, setViewMode] = useState('table');
+  const [facilities, setFacilities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('success');
+
+  // Form data for create/edit
+  const [formData, setFormData] = useState({
+    name: '',
+    region: '',
+    type: '',
+    status: '',
+    technical_condition: '',
+    water_type: '',
+    has_fauna: '',
+    passport_date: '',
+    commissioned_year: '',
+    capacity: '',
+    latitude: '',
+    longitude: '',
+    description: ''
+  });
+
+  useEffect(() => {
+    loadFacilities();
+  }, [selectedRegion, selectedType]);
+
+  const loadFacilities = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (selectedRegion && selectedRegion !== 'Все регионы') {
+        params.region = selectedRegion;
+      }
+      if (selectedType) {
+        params.type = selectedType;
+      }
+
+      const response = await getHydroFacilities(params);
+      if (response.success) {
+        setFacilities(response.data || []);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки ГТС:', err);
+      setError('Не удалось загрузить ГТС');
+      setFacilities([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showAlertMessage = (message, type = 'success') => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
+  };
 
   // Регионы Казахстана
   const regions = [
@@ -77,106 +143,6 @@ const FacilitiesManagement = () => {
     { value: 'decommissioned', label: 'Выведено из эксплуатации' }
   ];
 
-  // Mock данные ГТС
-  const [facilities, setFacilities] = useState([
-    {
-      id: 1,
-      name: 'Бухтарминская ГЭС',
-      region: 'Восточно-Казахстанская',
-      type: 'hydropower',
-      status: 'operational',
-      technicalCondition: 2,
-      waterType: 'fresh',
-      fauna: true,
-      passportDate: '2020-06-15',
-      capacity: 675,
-      coordinates: { lat: 47.0833, lng: 83.3333 },
-      priority: { score: 16, level: 'high' },
-      commissionedYear: 1966,
-      lastInspection: '2024-09-20'
-    },
-    {
-      id: 2,
-      name: 'Шульбинская ГЭС',
-      region: 'Восточно-Казахстанская',
-      type: 'hydropower',
-      status: 'operational',
-      technicalCondition: 3,
-      waterType: 'fresh',
-      fauna: true,
-      passportDate: '2019-03-10',
-      capacity: 702,
-      coordinates: { lat: 50.0833, lng: 81.9167 },
-      priority: { score: 14, level: 'high' },
-      commissionedYear: 1987,
-      lastInspection: '2024-08-15'
-    },
-    {
-      id: 3,
-      name: 'Капшагайская ГЭС',
-      region: 'Алматинская',
-      type: 'hydropower',
-      status: 'maintenance',
-      technicalCondition: 4,
-      waterType: 'fresh',
-      fauna: false,
-      passportDate: '2018-11-22',
-      capacity: 364,
-      coordinates: { lat: 43.8833, lng: 77.0833 },
-      priority: { score: 12, level: 'high' },
-      commissionedYear: 1970,
-      lastInspection: '2024-07-10'
-    },
-    {
-      id: 4,
-      name: 'Канал Иртыш-Караганда',
-      region: 'Карагандинская',
-      type: 'canal',
-      status: 'operational',
-      technicalCondition: 3,
-      waterType: 'fresh',
-      fauna: false,
-      passportDate: '2021-02-18',
-      capacity: null,
-      coordinates: { lat: 49.8047, lng: 73.1094 },
-      priority: { score: 9, level: 'medium' },
-      commissionedYear: 1974,
-      lastInspection: '2024-10-01'
-    },
-    {
-      id: 5,
-      name: 'Плотина Сорга',
-      region: 'Павлодарская',
-      type: 'dam',
-      status: 'operational',
-      technicalCondition: 2,
-      waterType: 'fresh',
-      fauna: true,
-      passportDate: '2022-05-30',
-      capacity: null,
-      coordinates: { lat: 52.2833, lng: 76.9667 },
-      priority: { score: 6, level: 'medium' },
-      commissionedYear: 1985,
-      lastInspection: '2024-11-15'
-    },
-    {
-      id: 6,
-      name: 'Насосная станция Сырдарья',
-      region: 'Кызылординская',
-      type: 'pumping_station',
-      status: 'emergency',
-      technicalCondition: 5,
-      waterType: 'fresh',
-      fauna: false,
-      passportDate: '2016-08-12',
-      capacity: null,
-      coordinates: { lat: 44.8528, lng: 65.5094 },
-      priority: { score: 11, level: 'medium' },
-      commissionedYear: 1992,
-      lastInspection: '2024-06-20'
-    }
-  ]);
-
   // Статистика
   const stats = [
     {
@@ -196,7 +162,7 @@ const FacilitiesManagement = () => {
     {
       icon: AlertTriangle,
       label: 'Требуют внимания',
-      value: facilities.filter(f => f.priority.level === 'high').length.toString(),
+      value: facilities.filter(f => f.technicalCondition >= 4).length.toString(),
       change: '0',
       color: 'from-red-500 to-orange-500'
     },
@@ -209,7 +175,7 @@ const FacilitiesManagement = () => {
     }
   ];
 
-  // Получить цвет по категории состояния
+  // Вспомогательные функции
   const getConditionColor = (condition) => {
     const colors = {
       1: 'bg-green-100 text-green-800',
@@ -221,7 +187,6 @@ const FacilitiesManagement = () => {
     return colors[condition] || 'bg-gray-100 text-gray-800';
   };
 
-  // Получить цвет статуса
   const getStatusColor = (status) => {
     const colors = {
       operational: 'bg-green-100 text-green-800',
@@ -232,7 +197,6 @@ const FacilitiesManagement = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  // Получить название статуса
   const getStatusLabel = (status) => {
     const labels = {
       operational: 'Работает',
@@ -243,7 +207,6 @@ const FacilitiesManagement = () => {
     return labels[status] || status;
   };
 
-  // Получить название типа
   const getTypeLabel = (type) => {
     const labels = {
       hydropower: 'ГЭС',
@@ -256,63 +219,174 @@ const FacilitiesManagement = () => {
     return labels[type] || type;
   };
 
-  // Получить цвет приоритета
-  const getPriorityColor = (level) => {
-    const colors = {
-      high: 'bg-red-100 text-red-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      low: 'bg-green-100 text-green-800'
-    };
-    return colors[level] || 'bg-gray-100 text-gray-800';
-  };
-
-  // Получить название приоритета
-  const getPriorityLabel = (level) => {
-    const labels = {
-      high: 'Высокий',
-      medium: 'Средний',
-      low: 'Низкий'
-    };
-    return labels[level] || level;
-  };
-
-  // Фильтрация
+  // Фильтрация на клиенте
   const filteredFacilities = facilities.filter(facility => {
     const matchesSearch = facility.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRegion = !selectedRegion || selectedRegion === 'Все регионы' || facility.region === selectedRegion;
-    const matchesType = !selectedType || facility.type === selectedType;
     const matchesCondition = !selectedCondition || facility.technicalCondition === parseInt(selectedCondition);
-    
-    return matchesSearch && matchesRegion && matchesType && matchesCondition;
+
+    return matchesSearch && matchesCondition;
   });
 
-  // Обработчики
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      region: '',
+      type: '',
+      status: '',
+      technical_condition: '',
+      water_type: '',
+      has_fauna: '',
+      passport_date: '',
+      commissioned_year: '',
+      capacity: '',
+      latitude: '',
+      longitude: '',
+      description: ''
+    });
+  };
+
   const handleAddFacility = () => {
+    resetForm();
     setShowAddModal(true);
   };
 
   const handleEditFacility = (facility) => {
     setSelectedFacility(facility);
+    setFormData({
+      name: facility.name || '',
+      region: facility.region || '',
+      type: facility.type || '',
+      status: facility.status || '',
+      technical_condition: facility.technicalCondition?.toString() || '',
+      water_type: facility.waterType || '',
+      has_fauna: facility.hasFauna ? 'true' : 'false',
+      passport_date: facility.passportDate || '',
+      commissioned_year: facility.commissionedYear?.toString() || '',
+      capacity: facility.capacity?.toString() || '',
+      latitude: facility.latitude?.toString() || '',
+      longitude: facility.longitude?.toString() || '',
+      description: facility.description || ''
+    });
     setShowEditModal(true);
   };
 
-  const handleDeleteFacility = (id) => {
+  const handleDeleteFacility = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить это ГТС?')) {
-      setFacilities(facilities.filter(f => f.id !== id));
+      try {
+        const response = await deleteFacility(id);
+        if (response.success) {
+          showAlertMessage('ГТС успешно удалено', 'success');
+          loadFacilities();
+        }
+      } catch (err) {
+        console.error('Ошибка удаления ГТС:', err);
+        showAlertMessage(err.message || 'Не удалось удалить ГТС', 'error');
+      }
+    }
+  };
+
+  const handleSubmitCreate = async (e) => {
+    e.preventDefault();
+
+    try {
+      const facilityData = {
+        name: formData.name,
+        region: formData.region,
+        type: formData.type,
+        status: formData.status,
+        technical_condition: parseInt(formData.technical_condition),
+        water_type: formData.water_type,
+        has_fauna: formData.has_fauna === 'true',
+        passport_date: formData.passport_date,
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude)
+      };
+
+      if (formData.commissioned_year) facilityData.commissioned_year = parseInt(formData.commissioned_year);
+      if (formData.capacity) facilityData.capacity = parseFloat(formData.capacity);
+      if (formData.description) facilityData.description = formData.description;
+
+      const response = await createFacility(facilityData);
+      if (response.success) {
+        showAlertMessage('ГТС успешно создано', 'success');
+        setShowAddModal(false);
+        resetForm();
+        loadFacilities();
+      }
+    } catch (err) {
+      console.error('Ошибка создания ГТС:', err);
+      showAlertMessage(err.message || 'Не удалось создать ГТС', 'error');
+    }
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const facilityData = {
+        name: formData.name,
+        region: formData.region,
+        type: formData.type,
+        status: formData.status,
+        technical_condition: parseInt(formData.technical_condition),
+        water_type: formData.water_type,
+        has_fauna: formData.has_fauna === 'true',
+        passport_date: formData.passport_date,
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude)
+      };
+
+      if (formData.commissioned_year) facilityData.commissioned_year = parseInt(formData.commissioned_year);
+      if (formData.capacity) facilityData.capacity = parseFloat(formData.capacity);
+      if (formData.description) facilityData.description = formData.description;
+
+      const response = await updateFacility(selectedFacility.id, facilityData);
+      if (response.success) {
+        showAlertMessage('ГТС успешно обновлено', 'success');
+        setShowEditModal(false);
+        setSelectedFacility(null);
+        resetForm();
+        loadFacilities();
+      }
+    } catch (err) {
+      console.error('Ошибка обновления ГТС:', err);
+      showAlertMessage(err.message || 'Не удалось обновить ГТС', 'error');
     }
   };
 
   const handleExport = () => {
-    alert('Экспорт данных в CSV...');
+    showAlertMessage('Функция экспорта в разработке', 'info');
   };
 
   const handleImport = () => {
-    alert('Импорт данных из файла...');
+    showAlertMessage('Функция импорта в разработке', 'info');
   };
+
+  if (loading && facilities.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center h-screen">
+          <Loader className="w-8 h-8 animate-spin text-purple-500" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
+        {/* Alert */}
+        {showAlert && (
+          <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 ${
+            alertType === 'success' ? 'bg-green-500 text-white' :
+            alertType === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+          }`}>
+            {alertType === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+            {alertMessage}
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white">
           <div className="container mx-auto px-4 py-6">
@@ -353,7 +427,15 @@ const FacilitiesManagement = () => {
 
         {/* Main Content */}
         <div className="container mx-auto px-4 py-6">
-          
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              {error}
+            </div>
+          )}
+
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             {stats.map((stat, index) => {
@@ -509,8 +591,6 @@ const FacilitiesManagement = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Тип</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Статус</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Состояние</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Приоритет</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Последнее обследование</th>
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Действия</th>
                     </tr>
                   </thead>
@@ -545,22 +625,7 @@ const FacilitiesManagement = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(facility.priority.level)}`}>
-                            {getPriorityLabel(facility.priority.level)} ({facility.priority.score})
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {new Date(facility.lastInspection).toLocaleDateString('ru-RU')}
-                        </td>
-                        <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => alert(`Просмотр ${facility.name}`)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Просмотр"
-                            >
-                              <Eye className="w-5 h-5" />
-                            </button>
                             <button
                               onClick={() => handleEditFacility(facility)}
                               className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -611,20 +676,16 @@ const FacilitiesManagement = () => {
                         <span className="text-gray-600">Тип:</span>
                         <span className="font-semibold text-gray-900">{getTypeLabel(facility.type)}</span>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Год ввода:</span>
-                        <span className="font-semibold text-gray-900">{facility.commissionedYear}</span>
-                      </div>
+                      {facility.commissionedYear && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Год ввода:</span>
+                          <span className="font-semibold text-gray-900">{facility.commissionedYear}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Состояние:</span>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${getConditionColor(facility.technicalCondition)}`}>
                           Категория {facility.technicalCondition}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Приоритет:</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(facility.priority.level)}`}>
-                          {getPriorityLabel(facility.priority.level)}
                         </span>
                       </div>
                       {facility.capacity && (
@@ -633,28 +694,16 @@ const FacilitiesManagement = () => {
                           <span className="font-semibold text-gray-900">{facility.capacity} МВт</span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Обследование:</span>
-                        <span className="font-semibold text-gray-900">
-                          {new Date(facility.lastInspection).toLocaleDateString('ru-RU')}
-                        </span>
-                      </div>
                     </div>
 
                     {/* Actions */}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => alert(`Просмотр ${facility.name}`)}
-                        className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Просмотр
-                      </button>
-                      <button
                         onClick={() => handleEditFacility(facility)}
-                        className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                        className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-4 h-4 mr-2" />
+                        Изменить
                       </button>
                       <button
                         onClick={() => handleDeleteFacility(facility.id)}
@@ -670,7 +719,7 @@ const FacilitiesManagement = () => {
           )}
 
           {/* Empty State */}
-          {filteredFacilities.length === 0 && (
+          {filteredFacilities.length === 0 && !loading && (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-12 text-center">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-8 h-8 text-gray-400" />
@@ -701,7 +750,10 @@ const FacilitiesManagement = () => {
                   Добавить новое ГТС
                 </h2>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                   className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -710,7 +762,7 @@ const FacilitiesManagement = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
+            <form onSubmit={handleSubmitCreate} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -718,6 +770,9 @@ const FacilitiesManagement = () => {
                   </label>
                   <input
                     type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
                     placeholder="Введите название ГТС"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
@@ -727,7 +782,12 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Регион <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                  <select
+                    required
+                    value={formData.region}
+                    onChange={(e) => setFormData({...formData, region: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
                     <option value="">Выберите регион</option>
                     {regions.filter(r => r !== 'Все регионы').map((region) => (
                       <option key={region} value={region}>{region}</option>
@@ -739,7 +799,12 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Тип ГТС <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                  <select
+                    required
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
                     <option value="">Выберите тип</option>
                     {facilityTypes.filter(t => t.value).map((type) => (
                       <option key={type.value} value={type.value}>{type.label}</option>
@@ -751,7 +816,12 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Статус <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                  <select
+                    required
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
                     <option value="">Выберите статус</option>
                     {statuses.filter(s => s.value).map((status) => (
                       <option key={status.value} value={status.value}>{status.label}</option>
@@ -763,7 +833,12 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Техническое состояние (1-5) <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                  <select
+                    required
+                    value={formData.technical_condition}
+                    onChange={(e) => setFormData({...formData, technical_condition: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
                     <option value="">Выберите категорию</option>
                     <option value="1">Категория 1 (Отличное)</option>
                     <option value="2">Категория 2 (Хорошее)</option>
@@ -777,7 +852,12 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Тип воды <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                  <select
+                    required
+                    value={formData.water_type}
+                    onChange={(e) => setFormData({...formData, water_type: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
                     <option value="">Выберите тип</option>
                     <option value="fresh">Пресная</option>
                     <option value="non-fresh">Непресная</option>
@@ -786,18 +866,18 @@ const FacilitiesManagement = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Наличие фауны
+                    Наличие фауны <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center">
-                      <input type="radio" name="fauna" value="true" className="mr-2" />
-                      <span>Да</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input type="radio" name="fauna" value="false" className="mr-2" />
-                      <span>Нет</span>
-                    </label>
-                  </div>
+                  <select
+                    required
+                    value={formData.has_fauna}
+                    onChange={(e) => setFormData({...formData, has_fauna: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Выберите</option>
+                    <option value="true">Да</option>
+                    <option value="false">Нет</option>
+                  </select>
                 </div>
 
                 <div>
@@ -806,6 +886,9 @@ const FacilitiesManagement = () => {
                   </label>
                   <input
                     type="date"
+                    required
+                    value={formData.passport_date}
+                    onChange={(e) => setFormData({...formData, passport_date: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -816,6 +899,8 @@ const FacilitiesManagement = () => {
                   </label>
                   <input
                     type="number"
+                    value={formData.commissioned_year}
+                    onChange={(e) => setFormData({...formData, commissioned_year: e.target.value})}
                     placeholder="1980"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
@@ -827,6 +912,9 @@ const FacilitiesManagement = () => {
                   </label>
                   <input
                     type="number"
+                    step="0.01"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({...formData, capacity: e.target.value})}
                     placeholder="675"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
@@ -839,6 +927,9 @@ const FacilitiesManagement = () => {
                   <input
                     type="number"
                     step="0.0001"
+                    required
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({...formData, latitude: e.target.value})}
                     placeholder="47.0833"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
@@ -851,20 +942,12 @@ const FacilitiesManagement = () => {
                   <input
                     type="number"
                     step="0.0001"
+                    required
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({...formData, longitude: e.target.value})}
                     placeholder="83.3333"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Загрузить PDF паспорт
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors cursor-pointer">
-                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">Перетащите файл или кликните для выбора</p>
-                    <p className="text-xs text-gray-500 mt-1">PDF, максимум 10 МБ</p>
-                  </div>
                 </div>
 
                 <div className="md:col-span-2">
@@ -873,6 +956,8 @@ const FacilitiesManagement = () => {
                   </label>
                   <textarea
                     rows={4}
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
                     placeholder="Дополнительная информация о ГТС..."
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
@@ -882,23 +967,24 @@ const FacilitiesManagement = () => {
               {/* Modal Footer */}
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetForm();
+                  }}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
                 >
                   Отмена
                 </button>
                 <button
-                  onClick={() => {
-                    alert('ГТС добавлено!');
-                    setShowAddModal(false);
-                  }}
+                  type="submit"
                   className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold flex items-center"
                 >
                   <Save className="w-5 h-5 mr-2" />
                   Сохранить
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -915,7 +1001,11 @@ const FacilitiesManagement = () => {
                   Редактировать ГТС
                 </h2>
                 <button
-                  onClick={() => setShowEditModal(false)}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedFacility(null);
+                    resetForm();
+                  }}
                   className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -925,7 +1015,7 @@ const FacilitiesManagement = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
+            <form onSubmit={handleSubmitEdit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -933,7 +1023,9 @@ const FacilitiesManagement = () => {
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedFacility.name}
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -942,8 +1034,10 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Регион <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    defaultValue={selectedFacility.region}
+                  <select
+                    required
+                    value={formData.region}
+                    onChange={(e) => setFormData({...formData, region: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     {regions.filter(r => r !== 'Все регионы').map((region) => (
@@ -956,8 +1050,10 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Тип ГТС <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    defaultValue={selectedFacility.type}
+                  <select
+                    required
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     {facilityTypes.filter(t => t.value).map((type) => (
@@ -970,8 +1066,10 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Статус <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    defaultValue={selectedFacility.status}
+                  <select
+                    required
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     {statuses.filter(s => s.value).map((status) => (
@@ -984,8 +1082,10 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Техническое состояние (1-5) <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    defaultValue={selectedFacility.technicalCondition}
+                  <select
+                    required
+                    value={formData.technical_condition}
+                    onChange={(e) => setFormData({...formData, technical_condition: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="1">Категория 1 (Отличное)</option>
@@ -1000,8 +1100,10 @@ const FacilitiesManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Тип воды <span className="text-red-500">*</span>
                   </label>
-                  <select 
-                    defaultValue={selectedFacility.waterType}
+                  <select
+                    required
+                    value={formData.water_type}
+                    onChange={(e) => setFormData({...formData, water_type: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="fresh">Пресная</option>
@@ -1011,11 +1113,28 @@ const FacilitiesManagement = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Наличие фауны <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={formData.has_fauna}
+                    onChange={(e) => setFormData({...formData, has_fauna: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="true">Да</option>
+                    <option value="false">Нет</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Дата паспорта <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
-                    defaultValue={selectedFacility.passportDate}
+                    required
+                    value={formData.passport_date}
+                    onChange={(e) => setFormData({...formData, passport_date: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -1026,23 +1145,24 @@ const FacilitiesManagement = () => {
                   </label>
                   <input
                     type="number"
-                    defaultValue={selectedFacility.commissionedYear}
+                    value={formData.commissioned_year}
+                    onChange={(e) => setFormData({...formData, commissioned_year: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
-                {selectedFacility.capacity && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Мощность (МВт)
-                    </label>
-                    <input
-                      type="number"
-                      defaultValue={selectedFacility.capacity}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Мощность (МВт)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1051,7 +1171,9 @@ const FacilitiesManagement = () => {
                   <input
                     type="number"
                     step="0.0001"
-                    defaultValue={selectedFacility.coordinates.lat}
+                    required
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({...formData, latitude: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -1063,7 +1185,21 @@ const FacilitiesManagement = () => {
                   <input
                     type="number"
                     step="0.0001"
-                    defaultValue={selectedFacility.coordinates.lng}
+                    required
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({...formData, longitude: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Описание
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -1072,23 +1208,25 @@ const FacilitiesManagement = () => {
               {/* Modal Footer */}
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => setShowEditModal(false)}
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedFacility(null);
+                    resetForm();
+                  }}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
                 >
                   Отмена
                 </button>
                 <button
-                  onClick={() => {
-                    alert('Изменения сохранены!');
-                    setShowEditModal(false);
-                  }}
+                  type="submit"
                   className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold flex items-center"
                 >
                   <Save className="w-5 h-5 mr-2" />
                   Сохранить изменения
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

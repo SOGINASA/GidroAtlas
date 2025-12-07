@@ -302,3 +302,137 @@ def get_water_body(wbid):
     except Exception as e:
         print(f'Ошибка получения водного объекта: {e}')
         return jsonify({'error': 'Ошибка при получении водного объекта'}), 500
+
+
+@facilities_bp.route('/water-bodies', methods=['POST'])
+@jwt_required()
+def create_water_body():
+    """Создать новый водный объект"""
+    try:
+        claims = get_jwt()
+        if claims.get('user_type') not in ['admin', 'emergency']:
+            return jsonify({'error': 'Требуются права администратора'}), 403
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Данные не предоставлены'}), 400
+
+        # Валидация обязательных полей
+        if 'name' not in data or not data['name']:
+            return jsonify({'error': 'Название обязательно'}), 400
+
+        water_body = WaterBody(
+            name=data.get('name'),
+            type=data.get('type', 'Озеро'),
+            region=data.get('region'),
+            coordinates=data.get('coordinates'),
+            length=data.get('length'),
+            area=data.get('area'),
+            max_depth=data.get('maxDepth'),
+            average_depth=data.get('averageDepth'),
+            volume=data.get('volume'),
+            technical_condition=data.get('technicalCondition', 3),
+            passport_year=data.get('passportYear'),
+            passport_date=datetime.fromisoformat(data['passportDate']) if data.get('passportDate') else None,
+            water_type=data.get('waterType', 'fresh'),
+            has_fauna=data.get('hasFauna', True),
+            related_sensor_ids=data.get('relatedSensors'),
+            related_facility_ids=data.get('relatedFacilities'),
+            description=data.get('description')
+        )
+
+        db.session.add(water_body)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Водный объект создан', 'data': water_body.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f'Ошибка создания водного объекта: {e}')
+        return jsonify({'error': 'Ошибка при создании водного объекта'}), 500
+
+
+@facilities_bp.route('/water-bodies/<int:wbid>', methods=['PUT'])
+@jwt_required()
+def update_water_body(wbid):
+    """Обновить водный объект"""
+    try:
+        claims = get_jwt()
+        if claims.get('user_type') not in ['admin', 'emergency']:
+            return jsonify({'error': 'Требуются права администратора'}), 403
+
+        wb = WaterBody.query.get(wbid)
+        if not wb:
+            return jsonify({'error': 'Водный объект не найден'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Данные не предоставлены'}), 400
+
+        # Обновление полей
+        if 'name' in data:
+            wb.name = data['name']
+        if 'type' in data:
+            wb.type = data['type']
+        if 'region' in data:
+            wb.region = data['region']
+        if 'coordinates' in data:
+            wb.coordinates = data['coordinates']
+        if 'length' in data:
+            wb.length = data['length']
+        if 'area' in data:
+            wb.area = data['area']
+        if 'maxDepth' in data:
+            wb.max_depth = data['maxDepth']
+        if 'averageDepth' in data:
+            wb.average_depth = data['averageDepth']
+        if 'volume' in data:
+            wb.volume = data['volume']
+        if 'technicalCondition' in data:
+            wb.technical_condition = data['technicalCondition']
+        if 'passportYear' in data:
+            wb.passport_year = data['passportYear']
+        if 'passportDate' in data:
+            wb.passport_date = datetime.fromisoformat(data['passportDate']) if data.get('passportDate') else None
+        if 'waterType' in data:
+            wb.water_type = data['waterType']
+        if 'hasFauna' in data:
+            wb.has_fauna = data['hasFauna']
+        if 'relatedSensors' in data:
+            wb.related_sensor_ids = data['relatedSensors']
+        if 'relatedFacilities' in data:
+            wb.related_facility_ids = data['relatedFacilities']
+        if 'description' in data:
+            wb.description = data['description']
+
+        wb.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Водный объект обновлён', 'data': wb.to_dict()}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f'Ошибка обновления водного объекта: {e}')
+        return jsonify({'error': 'Ошибка при обновлении водного объекта'}), 500
+
+
+@facilities_bp.route('/water-bodies/<int:wbid>', methods=['DELETE'])
+@jwt_required()
+def delete_water_body(wbid):
+    """Удалить водный объект"""
+    try:
+        claims = get_jwt()
+        if claims.get('user_type') != 'admin':
+            return jsonify({'error': 'Требуются права администратора'}), 403
+
+        wb = WaterBody.query.get(wbid)
+        if not wb:
+            return jsonify({'error': 'Водный объект не найден'}), 404
+
+        # Hard delete
+        db.session.delete(wb)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Водный объект удалён'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f'Ошибка удаления водного объекта: {e}')
+        return jsonify({'error': 'Ошибка при удалении водного объекта'}), 500

@@ -1,33 +1,32 @@
-import React, { useState } from 'react';
-import { 
+import React, { useState, useEffect } from 'react';
+import {
   Users,
   Search,
   Filter,
   Plus,
   Edit3,
   Trash2,
-  Lock,
-  Unlock,
   Mail,
   Phone,
   Building2,
   Calendar,
-  Clock,
   CheckCircle,
   XCircle,
   Eye,
-  Download,
-  Upload,
-  MoreVertical,
   UserPlus,
-  Shield,
   AlertCircle,
-  TrendingUp,
-  X
+  X,
+  Loader
 } from 'lucide-react';
 import AdminLayout from '../../components/navigation/admin/AdminLayout';
+import { getAllUsers, createUser, updateUserProfile, deleteUser, getUserStats } from '../../services/userService';
 
 const UsersManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -35,596 +34,550 @@ const UsersManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Mock данные - пользователи
-  const users = [
-    {
-      id: 1,
-      login: 'ivanov_expert',
-      firstName: 'Александр',
-      lastName: 'Иванов',
-      email: 'ivanov@example.kz',
-      phone: '+7 701 234 5678',
-      role: 'expert',
-      organization: 'КазГидроМет',
-      position: 'Старший гидролог',
-      isActive: true,
-      lastLogin: '2024-12-06T10:30:00',
-      createdAt: '2023-06-15T09:00:00',
-      avatar: null
-    },
-    {
-      id: 2,
-      login: 'petrova_mchs',
-      firstName: 'Мария',
-      lastName: 'Петрова',
-      email: 'petrova@mchs.kz',
-      phone: '+7 702 345 6789',
-      role: 'emergency',
-      organization: 'МЧС РК',
-      position: 'Начальник отдела',
-      isActive: true,
-      lastLogin: '2024-12-06T09:15:00',
-      createdAt: '2023-08-20T11:00:00',
-      avatar: null
-    },
-    {
-      id: 3,
-      login: 'sidorov_admin',
-      firstName: 'Дмитрий',
-      lastName: 'Сидоров',
-      email: 'sidorov@hydroatlas.kz',
-      phone: '+7 703 456 7890',
-      role: 'admin',
-      organization: 'GidroAtlas',
-      position: 'Системный администратор',
-      isActive: true,
-      lastLogin: '2024-12-06T11:45:00',
-      createdAt: '2023-01-10T08:00:00',
-      avatar: null
-    },
-    {
-      id: 4,
-      login: 'kozlov_expert',
-      firstName: 'Владимир',
-      lastName: 'Козлов',
-      email: 'kozlov@institute.kz',
-      phone: '+7 704 567 8901',
-      role: 'expert',
-      organization: 'НИИ Водных ресурсов',
-      position: 'Научный сотрудник',
-      isActive: false,
-      lastLogin: '2024-11-28T16:20:00',
-      createdAt: '2023-09-05T10:30:00',
-      avatar: null
-    },
-    {
-      id: 5,
-      login: 'smirnova_expert',
-      firstName: 'Елена',
-      lastName: 'Смирнова',
-      email: 'smirnova@water.kz',
-      phone: '+7 705 678 9012',
-      role: 'expert',
-      organization: 'Водоканал',
-      position: 'Инженер-эколог',
-      isActive: true,
-      lastLogin: '2024-12-05T14:50:00',
-      createdAt: '2023-11-12T13:15:00',
-      avatar: null
+  // Форма нового пользователя
+  const [newUserData, setNewUserData] = useState({
+    email: '',
+    full_name: '',
+    password: '',
+    phone: '',
+    user_type: 'user',
+    address: '',
+    is_verified: false
+  });
+
+  useEffect(() => {
+    loadUsers();
+    loadStats();
+  }, [selectedRole, selectedStatus]);
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (selectedRole !== 'all') params.user_type = selectedRole;
+      // Фильтр по статусу пока не поддерживается в API
+
+      const response = await getAllUsers(params);
+      if (response.success) {
+        setUsers(response.data);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки пользователей:', err);
+      setError(err.toString());
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await getUserStats();
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки статистики:', err);
+    }
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      setActionLoading(true);
+      const response = await createUser(newUserData);
+      if (response.success) {
+        alert('Пользователь успешно создан');
+        setShowAddModal(false);
+        setNewUserData({
+          email: '',
+          full_name: '',
+          password: '',
+          phone: '',
+          user_type: 'user',
+          address: '',
+          is_verified: false
+        });
+        loadUsers();
+        loadStats();
+      }
+    } catch (err) {
+      alert(`Ошибка: ${err}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
+
+    try {
+      setActionLoading(true);
+      const response = await deleteUser(userId);
+      if (response.success) {
+        alert('Пользователь удалён');
+        loadUsers();
+        loadStats();
+      }
+    } catch (err) {
+      alert(`Ошибка: ${err}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateUser = async (userId, data) => {
+    try {
+      setActionLoading(true);
+      const response = await updateUserProfile(userId, data);
+      if (response.success) {
+        alert('Пользователь обновлён');
+        loadUsers();
+      }
+    } catch (err) {
+      alert(`Ошибка: ${err}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Фильтрация пользователей
+  const filteredUsers = users.filter(user => {
+    const matchesSearch =
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.full_name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesRole = selectedRole === 'all' || user.user_type === selectedRole;
+    const matchesStatus = selectedStatus === 'all' ||
+      (selectedStatus === 'active' && user.is_active !== false) ||
+      (selectedStatus === 'inactive' && user.is_active === false);
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
   // Статистика
-  const stats = [
+  const statsCards = stats ? [
     {
       icon: Users,
       label: 'Всего пользователей',
-      value: '342',
-      change: '+12',
+      value: stats.total || 0,
+      change: stats.total ? '+' + (stats.total - (stats.total - (stats.verified || 0))) : '0',
       color: 'from-purple-500 to-pink-500'
     },
     {
       icon: CheckCircle,
-      label: 'Активных',
-      value: '298',
-      change: '+8',
+      label: 'Верифицированных',
+      value: stats.verified || 0,
       color: 'from-green-500 to-emerald-500'
     },
     {
       icon: XCircle,
-      label: 'Неактивных',
-      value: '44',
-      change: '+4',
+      label: 'Не верифицированных',
+      value: stats.unverified || 0,
       color: 'from-red-500 to-orange-500'
     },
     {
       icon: UserPlus,
-      label: 'Новых за неделю',
-      value: '12',
-      change: '+5',
+      label: 'Экспертов',
+      value: stats.experts || 0,
       color: 'from-blue-500 to-cyan-500'
     }
-  ];
+  ] : [];
 
-  // Распределение по ролям
-  const roleDistribution = [
-    { role: 'guest', label: 'Гости', count: 145, color: 'bg-gray-500', icon: '👤' },
-    { role: 'expert', label: 'Эксперты', count: 128, color: 'bg-blue-500', icon: '🎓' },
-    { role: 'emergency', label: 'МЧС', count: 45, color: 'bg-red-500', icon: '🚨' },
-    { role: 'admin', label: 'Администраторы', count: 24, color: 'bg-purple-500', icon: '⚙️' }
-  ];
+  const getRoleLabel = (role) => {
+    const roles = {
+      'user': 'Гость',
+      'expert': 'Эксперт',
+      'emergency': 'МЧС',
+      'admin': 'Администратор'
+    };
+    return roles[role] || role;
+  };
 
   const getRoleBadge = (role) => {
-    const roles = {
-      guest: { label: 'Гость', color: 'bg-gray-100 text-gray-800 border-gray-300' },
-      expert: { label: 'Эксперт', color: 'bg-blue-100 text-blue-800 border-blue-300' },
-      emergency: { label: 'МЧС', color: 'bg-red-100 text-red-800 border-red-300' },
-      admin: { label: 'Админ', color: 'bg-purple-100 text-purple-800 border-purple-300' }
+    const badges = {
+      'admin': 'bg-purple-100 text-purple-700',
+      'expert': 'bg-blue-100 text-blue-700',
+      'emergency': 'bg-red-100 text-red-700',
+      'user': 'bg-gray-100 text-gray-700'
     };
-    return roles[role] || roles.guest;
+    return badges[role] || 'bg-gray-100 text-gray-700';
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleDeleteUser = (userId) => {
-    if (window.confirm('Вы уверены, что хотите удалить этого пользователя?')) {
-      console.log('Удаление пользователя:', userId);
-    }
-  };
-
-  const handleToggleStatus = (userId, currentStatus) => {
-    console.log(`${currentStatus ? 'Деактивация' : 'Активация'} пользователя:`, userId);
-  };
-
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.login.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    const matchesStatus = selectedStatus === 'all' || 
-      (selectedStatus === 'active' && user.isActive) ||
-      (selectedStatus === 'inactive' && !user.isActive);
-    
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  if (loading && users.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center h-screen">
+          <Loader className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gray-50">
-        
+      <div className="pb-20 md:pb-0">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white">
-          <div className="container mx-auto px-4 py-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold mb-2 flex items-center">
-                  <Users className="w-8 h-8 mr-3" />
-                  Управление пользователями
-                </h1>
-                <p className="text-purple-100">Администрирование учётных записей и доступа</p>
+        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-lg mb-6">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center">
+            <div className="mb-4 md:mb-0">
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">Управление пользователями</h1>
+              <p className="text-purple-100">Просмотр и редактирование пользователей системы</p>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 transition flex items-center gap-2 font-semibold"
+            >
+              <Plus className="w-5 h-5" />
+              Добавить пользователя
+            </button>
+          </div>
+        </div>
+
+        {/* Статистика */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {statsCards.map((stat, index) => (
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+              <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-lg flex items-center justify-center mb-3`}>
+                <stat.icon className="w-6 h-6 text-white" />
               </div>
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="bg-white text-purple-600 px-6 py-3 rounded-xl font-semibold hover:bg-purple-50 transition-colors flex items-center space-x-2"
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">{stat.label}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Поиск и фильтры */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Поиск */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Поиск по имени или email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            {/* Фильтры */}
+            <div className="flex gap-2">
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
               >
-                <UserPlus className="w-5 h-5" />
-                <span>Добавить пользователя</span>
-              </button>
+                <option value="all">Все роли</option>
+                <option value="user">Гости</option>
+                <option value="expert">Эксперты</option>
+                <option value="emergency">МЧС</option>
+                <option value="admin">Администраторы</option>
+              </select>
+
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="all">Все статусы</option>
+                <option value="active">Активные</option>
+                <option value="inactive">Неактивные</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="container mx-auto px-4 py-6">
-          
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <div key={index} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow">
-                  <div className={`bg-gradient-to-br ${stat.color} p-6`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <Icon className="w-10 h-10 text-white" />
-                    </div>
-                    <p className="text-4xl font-bold text-white mb-2">{stat.value}</p>
-                    <p className="text-sm text-white/80">{stat.label}</p>
-                    <div className="mt-3 flex items-center text-white/90 text-sm">
-                      <TrendingUp className="w-4 h-4 mr-1" />
-                      <span>{stat.change} за неделю</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Role Distribution */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <Shield className="w-6 h-6 text-purple-600 mr-2" />
-              Распределение по ролям
-            </h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {roleDistribution.map((roleData, index) => (
-                <div key={index} className={`${roleData.color} text-white rounded-xl p-6 hover:shadow-lg transition-shadow`}>
-                  <div className="text-4xl mb-3">{roleData.icon}</div>
-                  <p className="text-3xl font-bold mb-1">{roleData.count}</p>
-                  <p className="text-sm text-white/90">{roleData.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Filters & Search */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              
-              {/* Search */}
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Поиск</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Имя, email, логин..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Role Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Роль</label>
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="all">Все роли</option>
-                  <option value="guest">Гость</option>
-                  <option value="expert">Эксперт</option>
-                  <option value="emergency">МЧС</option>
-                  <option value="admin">Администратор</option>
-                </select>
-              </div>
-
-              {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Статус</label>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="all">Все</option>
-                  <option value="active">Активные</option>
-                  <option value="inactive">Неактивные</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Найдено: <span className="font-semibold">{filteredUsers.length}</span> из {users.length}
-              </p>
-              <div className="flex space-x-2">
-                <button className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-                  <Download className="w-4 h-4" />
-                  <span className="text-sm font-medium">Экспорт</span>
-                </button>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                  <Upload className="w-4 h-4" />
-                  <span className="text-sm font-medium">Импорт</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Users Table */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Пользователь
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Контакты
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Организация
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Роль
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Статус
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Последний вход
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Действия
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((user) => {
-                    const roleBadge = getRoleBadge(user.role);
-                    return (
-                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                        
-                        {/* User Info */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-                              {user.firstName[0]}{user.lastName[0]}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">
-                                {user.firstName} {user.lastName}
-                              </p>
-                              <p className="text-sm text-gray-500">@{user.login}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Contacts */}
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                              {user.email}
-                            </div>
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                              {user.phone}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Organization */}
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center text-sm font-medium text-gray-900">
-                              <Building2 className="w-4 h-4 mr-2 text-gray-400" />
-                              {user.organization}
-                            </div>
-                            <p className="text-xs text-gray-500 ml-6">{user.position}</p>
-                          </div>
-                        </td>
-
-                        {/* Role */}
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${roleBadge.color}`}>
-                            {roleBadge.label}
+        {/* Таблица пользователей */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Пользователь
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Контакты
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Роль
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Дата создания
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Действия
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-semibold">
+                            {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
                           </span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-6 py-4">
-                          {user.isActive ? (
-                            <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
-                              <CheckCircle className="w-3 h-3" />
-                              <span>Активен</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-300">
-                              <XCircle className="w-3 h-3" />
-                              <span>Неактивен</span>
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Last Login */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                            {formatDate(user.lastLogin)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {user.full_name || 'Без имени'}
                           </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center space-x-2">
-                            <button 
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setShowUserModal(true);
-                              }}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Просмотреть"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => console.log('Edit user:', user.id)}
-                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                              title="Редактировать"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleToggleStatus(user.id, user.isActive)}
-                              className={`p-2 ${user.isActive ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'} rounded-lg transition-colors`}
-                              title={user.isActive ? 'Деактивировать' : 'Активировать'}
-                            >
-                              {user.isActive ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Удалить"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {user.email}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Empty State */}
-            {filteredUsers.length === 0 && (
-              <div className="p-12 text-center">
-                <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 text-lg font-semibold">Пользователи не найдены</p>
-                <p className="text-gray-500 text-sm mt-2">Попробуйте изменить параметры поиска</p>
-              </div>
-            )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span>{user.email}</span>
+                        </div>
+                        {user.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            <span>{user.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadge(user.user_type)}`}>
+                        {getRoleLabel(user.user_type)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(user.created_at).toLocaleDateString('ru-RU')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowUserModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={actionLoading}
+                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          {filteredUsers.length === 0 && (
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">Пользователи не найдены</p>
+            </div>
+          )}
         </div>
 
-        {/* User Details Modal */}
-        {showUserModal && selectedUser && (
+        {/* Модальное окно добавления пользователя */}
+        {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6 rounded-t-2xl">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Детали пользователя</h2>
-                  <button 
-                    onClick={() => {
-                      setShowUserModal(false);
-                      setSelectedUser(null);
-                    }}
-                    className="w-8 h-8 flex items-center justify-center bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                  >
-                    <X className="w-5 h-5" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Добавить пользователя</h2>
+                  <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-6 h-6" />
                   </button>
                 </div>
-              </div>
 
-              {/* Modal Content */}
-              <div className="p-6 space-y-6">
-                
-                {/* User Avatar & Name */}
-                <div className="flex items-center space-x-4">
-                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-3xl">
-                    {selectedUser.firstName[0]}{selectedUser.lastName[0]}
+                <form onSubmit={handleCreateUser} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={newUserData.email}
+                        onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        ФИО *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newUserData.full_name}
+                        onChange={(e) => setNewUserData({...newUserData, full_name: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Пароль *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={newUserData.password}
+                        onChange={(e) => setNewUserData({...newUserData, password: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Телефон
+                      </label>
+                      <input
+                        type="tel"
+                        value={newUserData.phone}
+                        onChange={(e) => setNewUserData({...newUserData, phone: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Роль *
+                      </label>
+                      <select
+                        required
+                        value={newUserData.user_type}
+                        onChange={(e) => setNewUserData({...newUserData, user_type: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="user">Гость</option>
+                        <option value="expert">Эксперт</option>
+                        <option value="emergency">МЧС</option>
+                        <option value="admin">Администратор</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Адрес
+                      </label>
+                      <input
+                        type="text"
+                        value={newUserData.address}
+                        onChange={(e) => setNewUserData({...newUserData, address: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      {selectedUser.firstName} {selectedUser.lastName}
-                    </h3>
-                    <p className="text-gray-600">@{selectedUser.login}</p>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border mt-2 ${getRoleBadge(selectedUser.role).color}`}>
-                      {getRoleBadge(selectedUser.role).label}
-                    </span>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="is_verified"
+                      checked={newUserData.is_verified}
+                      onChange={(e) => setNewUserData({...newUserData, is_verified: e.target.checked})}
+                      className="w-4 h-4 text-purple-600 rounded"
+                    />
+                    <label htmlFor="is_verified" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Верифицированный пользователь
+                    </label>
+                  </div>
+
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      type="submit"
+                      disabled={actionLoading}
+                      className="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {actionLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                      Создать
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Модальное окно просмотра пользователя */}
+        {showUserModal && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Информация о пользователе</h2>
+                  <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex-shrink-0 h-16 w-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-2xl">
+                        {selectedUser.full_name ? selectedUser.full_name.charAt(0).toUpperCase() : 'U'}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedUser.full_name}</h3>
+                      <p className="text-gray-500 dark:text-gray-400">{selectedUser.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Роль</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{getRoleLabel(selectedUser.user_type)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Телефон</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{selectedUser.phone || 'Не указан'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Дата регистрации</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {new Date(selectedUser.created_at).toLocaleDateString('ru-RU')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Последний вход</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {selectedUser.last_login ? new Date(selectedUser.last_login).toLocaleDateString('ru-RU') : 'Никогда'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Info Sections */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  {/* Contact Info */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Контактная информация</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                        <span className="text-gray-700">{selectedUser.email}</span>
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                        <span className="text-gray-700">{selectedUser.phone}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Organization Info */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Организация</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <Building2 className="w-4 h-4 mr-2 text-gray-400" />
-                        <span className="text-gray-700">{selectedUser.organization}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 ml-6">{selectedUser.position}</p>
-                    </div>
-                  </div>
-
-                  {/* Account Info */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Информация об аккаунте</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        <span className="text-gray-600">Создан:</span>
-                        <span className="text-gray-900 ml-2">{formatDate(selectedUser.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                        <span className="text-gray-600">Последний вход:</span>
-                        <span className="text-gray-900 ml-2">{formatDate(selectedUser.lastLogin)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Статус</h4>
-                    {selectedUser.isActive ? (
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="font-semibold text-green-700">Аккаунт активен</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <XCircle className="w-5 h-5 text-gray-600" />
-                        <span className="font-semibold text-gray-700">Аккаунт деактивирован</span>
-                      </div>
-                    )}
-                  </div>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowUserModal(false)}
+                    className="px-6 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Закрыть
+                  </button>
                 </div>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="p-6 border-t border-gray-200 flex space-x-3">
-                <button className="flex-1 bg-purple-500 text-white py-3 rounded-xl hover:bg-purple-600 transition-colors font-semibold flex items-center justify-center space-x-2">
-                  <Edit3 className="w-5 h-5" />
-                  <span>Редактировать</span>
-                </button>
-                <button 
-                  onClick={() => handleToggleStatus(selectedUser.id, selectedUser.isActive)}
-                  className={`flex-1 py-3 rounded-xl transition-colors font-semibold flex items-center justify-center space-x-2 ${
-                    selectedUser.isActive 
-                      ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                      : 'bg-green-500 text-white hover:bg-green-600'
-                  }`}
-                >
-                  {selectedUser.isActive ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                  <span>{selectedUser.isActive ? 'Деактивировать' : 'Активировать'}</span>
-                </button>
-                <button 
-                  onClick={() => handleDeleteUser(selectedUser.id)}
-                  className="flex-1 bg-red-500 text-white py-3 rounded-xl hover:bg-red-600 transition-colors font-semibold flex items-center justify-center space-x-2"
-                >
-                  <Trash2 className="w-5 h-5" />
-                  <span>Удалить</span>
-                </button>
               </div>
             </div>
           </div>

@@ -73,6 +73,20 @@ export const getResidents = async (search = '') => {
 };
 
 /**
+ * Создать нового пользователя (только для admin)
+ * @param {Object} userData - Данные нового пользователя
+ */
+export const createUser = async (userData) => {
+  try {
+    const response = await api.post('/users', userData);
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка создания пользователя:', error);
+    throw error.response?.data?.error || 'Не удалось создать пользователя';
+  }
+};
+
+/**
  * Удалить пользователя (только для admin)
  * @param {number} userId - ID пользователя
  */

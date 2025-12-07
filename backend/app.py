@@ -48,6 +48,7 @@ def create_app():
         notifications_bp,
         reports_bp,
         map_bp,
+        admin_bp,
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -58,6 +59,7 @@ def create_app():
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(map_bp, url_prefix='/api/map')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
     # Главная страница API
     @app.route('/api')

@@ -90,6 +90,64 @@ def get_user_by_id(user_id):
         return jsonify({'error': str(e)}), 500
 
 
+@users_bp.route('', methods=['POST'])
+@jwt_required()
+def create_user():
+    """
+    Создать нового пользователя
+    Доступно: только admin
+    """
+    claims = get_jwt()
+    user_type = claims.get('user_type', 'user')
+
+    if user_type != 'admin':
+        return jsonify({'error': 'Требуются права администратора'}), 403
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Данные не предоставлены'}), 400
+
+        # Валидация обязательных полей
+        required_fields = ['email', 'full_name', 'password']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'Поле {field} обязательно'}), 400
+
+        # Проверка email на уникальность
+        if User.query.filter_by(email=data['email']).first():
+            return jsonify({'error': 'Пользователь с таким email уже существует'}), 400
+
+        # Валидация пароля
+        if len(data['password']) < 6:
+            return jsonify({'error': 'Пароль должен быть не менее 6 символов'}), 400
+
+        # Создание нового пользователя
+        new_user = User(
+            email=data['email'],
+            full_name=data['full_name'],
+            user_type=data.get('user_type', 'user'),  # по умолчанию 'user'
+            phone=data.get('phone'),
+            address=data.get('address'),
+            is_verified=data.get('is_verified', False),
+            is_active=True
+        )
+        new_user.set_password(data['password'])
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Пользователь успешно создан',
+            'data': new_user.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @users_bp.route('/<int:user_id>', methods=['PUT'])
 @jwt_required()
 def update_user(user_id):
