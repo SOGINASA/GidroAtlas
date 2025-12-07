@@ -1,5 +1,6 @@
 /* global L */
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Globe,
   Droplets, 
@@ -517,6 +518,7 @@ L.tileLayer(url, options).addTo(mapInstanceRef.current);
 // AdminMap (главный компонент)
 // =============================
 const AdminMap = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
@@ -1206,7 +1208,18 @@ const AdminMap = () => {
               </div>
 
               <div className="p-4 border-t border-gray-200 space-y-2">
-                <button className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold">
+                <button
+                  onClick={() => {
+                    const type = selectedObject.type;
+                    const route = type === 'facility' || type === 'Плотина' || type === 'ГЭС'
+                      ? `/detail/facility/${selectedObject.id}`
+                      : type === 'critical'
+                      ? `/detail/critical-zone/${selectedObject.id}`
+                      : `/detail/waterbody/${selectedObject.id}`;
+                    navigate(route);
+                  }}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold"
+                >
                   <Eye className="w-5 h-5" />
                   <span>Просмотреть детали</span>
                 </button>

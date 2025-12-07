@@ -61,6 +61,11 @@ import WaterBodyDetails from './pages/admin/WaterBodyDetail';
 import FacilityDetails from './pages/admin/FacilityDetail';
 import CriticalZoneDetails from './pages/admin/CriticalZoneDetail';
 
+// Shared detail pages (role-based adaptive layout)
+import FacilityDetailPage from './pages/shared/FacilityDetailPage';
+import WaterBodyDetailPage from './pages/shared/WaterBodyDetailPage';
+import CriticalZoneDetailPage from './pages/shared/CriticalZoneDetailPage';
+
 function App() {
   return (
     <BrowserRouter>
@@ -106,7 +111,18 @@ function App() {
             <Route path="/emergency/profile" element={<EmergencyProfile />} />
           </Route>
 
-          {/* Общие маршруты деталей - доступны для всех (включая гостей) */}
+          {/* Общие маршруты деталей - доступны для всех авторизованных пользователей с адаптивным лейаутом */}
+          <Route element={<RequireAuth allowedRoles={['admin', 'expert', 'emergency']} />}>
+            <Route path="/detail/facility/:id" element={<FacilityDetailPage />} />
+            <Route path="/detail/waterbody/:id" element={<WaterBodyDetailPage />} />
+            <Route path="/detail/critical-zone/:id" element={<CriticalZoneDetailPage />} />
+          </Route>
+
+          {/* Гостевые маршруты деталей - доступны для гостей без авторизации */}
+          <Route path="/guest/facility/:id" element={<FacilityDetailPage />} />
+          <Route path="/guest/waterbody/:id" element={<WaterBodyDetailPage />} />
+
+          {/* Админ-специфичные маршруты деталей (устаревшие - используйте /detail/...) */}
           <Route path="/admin/waterbody/:id" element={<WaterBodyDetails />} />
           <Route path="/admin/facility/:id" element={<FacilityDetails />} />
           <Route path="/admin/critical-zone/:id" element={<CriticalZoneDetails />} />

@@ -304,13 +304,7 @@ const WaterBodyDetail = () => {
                   Сейчас для объекта <span className="font-semibold">{w.name}</span> нет
                   прикреплённого PDF-паспорта.
                 </p>
-                <p className="text-xs text-gray-500">
-                  Когда на бэке появится загрузка паспорта, в поле{' '}
-                  <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">
-                    passportUrl
-                  </code>{' '}
-                  можно будет хранить ссылку на файл и открывать его в новой вкладке.
-                </p>
+                
               </div>
             </div>
           </>

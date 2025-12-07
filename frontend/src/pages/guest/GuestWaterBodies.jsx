@@ -180,7 +180,10 @@ const GuestWaterBodiesPage = () => {
                         Кат. {wb.technicalCondition}
                       </span>
                     </div>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    <button
+                      onClick={() => window.location.href = `/guest/waterbody/${wb.id}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
                       Подробнее →
                     </button>
                   </div>

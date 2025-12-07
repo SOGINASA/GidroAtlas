@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Search, Filter, Zap, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { getHydroFacilities } from '../../services/hydroFacilityService';
 
 const FacilitiesManagement = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
@@ -208,7 +210,10 @@ const FacilitiesManagement = () => {
                     </div>
                   )}
 
-                  <button className="w-full py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700">
+                  <button
+                    onClick={() => navigate(`/detail/facility/${facility.id}`)}
+                    className="w-full py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700"
+                  >
                     Подробнее
                   </button>
                 </div>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import EmergencyLayout from '../../components/navigation/emergency/EmergencyLayout';
 import { Search, Filter, Download, TrendingUp, AlertTriangle, Calendar, Info } from 'lucide-react';
 import { getInspectionPriorities } from '../../services/priorityService';
 
 const PrioritizationPage = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
@@ -65,6 +67,19 @@ const PrioritizationPage = () => {
     if (condition >= 4) return 'text-red-600';
     if (condition === 3) return 'text-yellow-600';
     return 'text-green-600';
+  };
+
+  const handleViewDetails = (obj) => {
+    // Определяем тип объекта по objectType или type
+    const objectType = obj.objectType || obj.type;
+
+    // Роутим в зависимости от типа
+    if (objectType && objectType.toLowerCase().includes('гтс')) {
+      navigate(`/detail/facility/${obj.id}`);
+    } else {
+      // По умолчанию считаем водоём
+      navigate(`/detail/waterbody/${obj.id}`);
+    }
   };
 
   return (
@@ -308,7 +323,10 @@ const PrioritizationPage = () => {
                           )}
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
+                          <button
+                            onClick={() => handleViewDetails(obj)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all"
+                          >
                             Подробнее
                           </button>
                         </td>

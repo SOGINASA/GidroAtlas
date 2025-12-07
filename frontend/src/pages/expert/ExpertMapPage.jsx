@@ -893,14 +893,14 @@ const ExpertMapPage = () => {
         </div>
       </div>
 
-      {/* MODAL */}
+      {/* MODAL - Компактная версия */}
       {selectedObject && (
         <>
           <div
             className="fixed inset-0 bg-black/50 z-50"
             onClick={() => setSelectedObject(null)}
           />
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-3xl bg-white rounded-2xl shadow-2xl z-50 overflow-hidden max-h-[90vh]">
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
             {/* header */}
             <div
               className="px-6 py-4 text-white"
@@ -914,22 +914,22 @@ const ExpertMapPage = () => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-2">
                     {selectedObject.objectType === 'water' && (
-                      <Droplets className="w-6 h-6" />
+                      <Droplets className="w-5 h-5" />
                     )}
                     {selectedObject.objectType === 'facility' && (
-                      <Zap className="w-6 h-6" />
+                      <Zap className="w-5 h-5" />
                     )}
                     {selectedObject.objectType === 'critical' && (
-                      <AlertTriangle className="w-6 h-6" />
+                      <AlertTriangle className="w-5 h-5" />
                     )}
-                    <span className="text-sm font-medium opacity-90">
+                    <span className="text-xs font-medium opacity-90">
                       {getTypeLabel(selectedObject, selectedObject.objectType)}
                     </span>
                   </div>
-                  <h2 className="text-2xl font-bold mb-1">
+                  <h2 className="text-xl font-bold mb-1">
                     {selectedObject.name}
                   </h2>
-                  <p className="text-sm opacity-80">
+                  <p className="text-xs opacity-80">
                     {selectedObject.region || 'Регион не указан'}
                   </p>
                 </div>
@@ -942,105 +942,57 @@ const ExpertMapPage = () => {
               </div>
             </div>
 
-            {/* body */}
-            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* основные карточки */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Регион</p>
-                  <p className="font-semibold text-gray-900">
-                    {selectedObject.region || 'Не указан'}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Состояние</p>
+            {/* body - компактная информация */}
+            <div className="p-6 space-y-4">
+              {/* Основная информация */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 mb-1">Состояние</p>
                   <div className="flex items-center space-x-2">
                     <div
-                      className="w-4 h-4 rounded-full"
+                      className="w-3 h-3 rounded-full"
                       style={{
                         backgroundColor: getConditionColor(
                           selectedObject.condition,
                         ),
                       }}
                     />
-                    <span className="font-semibold text-gray-900">
-                      Кат. {selectedObject.condition}{' '}
-                      <span className="text-xs text-gray-600 ml-1">
-                        ({getConditionLabel(selectedObject.condition)})
-                      </span>
+                    <span className="font-semibold text-sm text-gray-900">
+                      Кат. {selectedObject.condition}
                     </span>
                   </div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 col-span-2 md:col-span-1">
-                  <p className="text-sm text-gray-600 mb-1">Приоритет</p>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 mb-1">Приоритет</p>
                   {getPriorityBadge(selectedObject.priority)}
                 </div>
               </div>
 
-              {/* Спец-инфа по типам */}
-              {selectedObject.objectType === 'water' && (
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 space-y-2">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <Waves className="w-5 h-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-700">
-                      Характеристики водоёма
-                    </p>
-                  </div>
-                  <p className="text-sm text-blue-900">
-                    Тип ресурса:{' '}
-                    <span className="font-semibold">
-                      {selectedObject.resourceType}
-                    </span>
-                  </p>
-                  <p className="text-sm text-blue-900">
-                    Тип воды:{' '}
-                    <span className="font-semibold">
-                      {selectedObject.waterType}
-                    </span>
-                  </p>
-                  <p className="text-sm text-blue-900">
-                    Биоресурсы:{' '}
-                    <span className="font-semibold">
-                      {selectedObject.hasFauna
-                        ? 'Есть рыбные ресурсы'
-                        : 'Биоресурсы ограничены'}
-                    </span>
+              {/* Тип-специфичная информация (кратко) */}
+              {selectedObject.objectType === 'water' && selectedObject.resourceType && (
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <p className="text-xs text-blue-700 mb-1">Тип ресурса</p>
+                  <p className="text-sm font-semibold text-blue-900">
+                    {selectedObject.resourceType}
                   </p>
                 </div>
               )}
 
-              {selectedObject.objectType === 'facility' && (
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200 space-y-2">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <Zap className="w-5 h-5 text-purple-600" />
-                    <p className="text-sm font-semibold text-purple-700">
-                      Гидротехническое сооружение
-                    </p>
-                  </div>
-                  <p className="text-sm text-purple-900">
-                    Тип:{' '}
-                    <span className="font-semibold">
-                      {selectedObject.facilityType}
-                    </span>
+              {selectedObject.objectType === 'facility' && selectedObject.facilityType && (
+                <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                  <p className="text-xs text-purple-700 mb-1">Тип ГТС</p>
+                  <p className="text-sm font-semibold text-purple-900">
+                    {selectedObject.facilityType}
                   </p>
                 </div>
               )}
 
               {selectedObject.objectType === 'critical' && (
-                <div className="bg-red-50 rounded-lg p-4 border border-red-200 space-y-2">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <p className="text-sm font-semibold text-red-700">
-                      Критическая зона
-                    </p>
-                  </div>
-                  <p className="text-sm text-red-900">
-                    Уровень:{' '}
-                    <span className="font-semibold">
-                      {selectedObject.level === 'critical'
-                        ? 'Критический'
-                        : 'Предупреждение'}
-                    </span>
+                <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                  <p className="text-xs text-red-700 mb-1">
+                    {selectedObject.level === 'critical'
+                      ? '⚠️ Критический уровень'
+                      : '⚡ Предупреждение'}
                   </p>
                   <p className="text-sm text-red-900">
                     {selectedObject.description}
@@ -1048,92 +1000,27 @@ const ExpertMapPage = () => {
                 </div>
               )}
 
-              {/* Паспорт / год */}
-              {selectedObject.passportYear && (
-                <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Calendar className="w-5 h-5 text-amber-600" />
-                    <p className="text-sm font-semibold text-amber-700">
-                      Паспорт объекта
-                    </p>
-                  </div>
-                  <p className="font-semibold text-amber-900">
-                    Год паспортизации: {selectedObject.passportYear} г.
-                  </p>
-                  {selectedObject.priority?.passportAge !== undefined && (
-                    <p className="text-sm text-amber-700 mt-1">
-                      Возраст паспорта:{' '}
-                      {selectedObject.priority.passportAge} лет
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Координаты */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  <p className="text-sm font-semibold text-gray-700">
-                    Координаты
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500">Широта</p>
-                    <p className="font-semibold text-gray-900">
-                      {selectedObject.lat?.toFixed(6)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Долгота</p>
-                    <p className="font-semibold text-gray-900">
-                      {selectedObject.lng?.toFixed(6)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Приоритет (формула) */}
-              {selectedObject.priority && selectedObject.priority.score > 0 && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-700">
-                      Расчёт приоритета обследования
-                    </p>
-                  </div>
-                  {selectedObject.priority.passportAge !== undefined && (
-                    <div className="bg-white rounded-lg p-3 mb-3">
-                      <p className="text-sm text-gray-600 mb-2">
-                        <span className="font-mono bg-blue-100 px-2 py-1 rounded text-blue-900">
-                          (6 - {selectedObject.condition}) × 3 +{' '}
-                          {selectedObject.priority.passportAge} ={' '}
-                          {selectedObject.priority.score}
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                  <div className="space-y-2 text-xs text-gray-600">
-                    <p>• Высокий приоритет: ≥ 12 баллов</p>
-                    <p>• Средний приоритет: 6–11 баллов</p>
-                    <p>• Низкий приоритет: &lt; 6 баллов</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex space-x-3 pt-4 border-t border-gray-200">
+              {/* Кнопки действий */}
+              <div className="flex space-x-3 pt-2">
                 <button
                   onClick={() => setSelectedObject(null)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 transition-colors font-semibold text-sm"
                 >
                   Закрыть
                 </button>
-                {selectedObject.objectType === 'water' && selectedObject.id && (
+                {selectedObject.id && (
                   <button
-                    onClick={() => navigate(`/admin/waterbody/${selectedObject.id}`)}
-                    className="flex-1 bg-sky-600 text-white py-3 rounded-xl hover:bg-sky-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+                    onClick={() => {
+                      const route = selectedObject.objectType === 'water'
+                        ? `/detail/waterbody/${selectedObject.id}`
+                        : selectedObject.objectType === 'facility'
+                        ? `/detail/facility/${selectedObject.id}`
+                        : `/detail/critical-zone/${selectedObject.id}`;
+                      navigate(route);
+                    }}
+                    className="flex-1 bg-sky-600 text-white py-3 rounded-xl hover:bg-sky-700 transition-colors font-semibold flex items-center justify-center space-x-2 text-sm"
                   >
-                    <ExternalLink className="w-5 h-5" />
+                    <ExternalLink className="w-4 h-4" />
                     <span>Подробнее</span>
                   </button>
                 )}
